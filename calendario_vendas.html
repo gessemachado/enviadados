@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vanta Ledger - Calendário de Vendas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-container-highest": "#353534",
+        "surface-container-high":    "#2a2a2a",
+        "surface-container":         "#201f1f",
+        "surface-container-low":     "#1c1b1b",
+        "surface-container-lowest":  "#0e0e0e",
+        "surface":                   "#131313",
+        "on-surface":                "#e5e2e1",
+        "primary-container":         "#ff6600",
+        "on-primary-container":      "#561d00",
+        "outline":                   "#aa8a7d",
+        "outline-variant":           "#5a4136",
+      },
+      fontFamily: {
+        headline: ["Manrope"],
+        body:     ["Inter"],
+        label:    ["Inter"],
+      }
+    }
+  }
+}
+</script>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+    vertical-align: middle;
+  }
+  body { font-family: 'Inter', sans-serif; }
+  h1,h2,h3,.headline { font-family: 'Manrope', sans-serif; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  @keyframes pulse-glow {
+    0%,100% { box-shadow: inset 0 0 20px rgba(255,102,0,0.15); }
+    50%      { box-shadow: inset 0 0 30px rgba(255,102,0,0.30); }
+  }
+  .today-cell { animation: pulse-glow 3s ease-in-out infinite; }
+</style>
+</head>
+<body class="bg-surface text-on-surface antialiased overflow-hidden">
+
+<!-- META CONFIG (oculto) -->
+<input type="hidden" id="meta_mensal" value="130000">
+
+<!-- Sidebar -->
+<aside class="flex flex-col h-full border-r border-white/5 bg-[#0e0e0e] h-screen w-72 fixed left-0 top-0 z-40 font-['Manrope'] uppercase tracking-widest text-[10px]">
+  <div class="p-8 flex items-center gap-3">
+    <div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center">
+      <span class="material-symbols-outlined text-white" style="font-variation-settings:'FILL' 1;">grid_view</span>
+    </div>
+    <div>
+      <h1 class="text-[#FF6600] font-black text-sm">Obsidian</h1>
+      <p class="text-gray-500 text-[9px] tracking-widest">Analytical Suite</p>
+    </div>
+  </div>
+  <nav class="flex-1 px-4">
+    <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="calendario_vendas.html">
+      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Sales Ledger</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="produtos.html">
+      <span class="material-symbols-outlined mr-3">bar_chart</span><span>Produtos</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
+      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Estoque</span>
+    </a>
+  </nav>
+  <div class="px-8 mb-8">
+    <div class="w-full py-3 bg-surface-container-low border border-white/5 rounded-lg text-center">
+      <p class="text-gray-500 text-[9px]">META MENSAL</p>
+      <p class="text-white font-bold text-sm" id="label_meta">R$ 130.000</p>
+    </div>
+  </div>
+  <div class="p-4 border-t border-white/5"></div>
+</aside>
+
+<!-- Main -->
+<main class="ml-72 flex flex-col h-screen bg-[#0a0a0a]">
+
+  <!-- Header -->
+  <header class="bg-[#1c1b1b]/80 backdrop-blur-xl sticky top-0 z-50 flex justify-between items-center w-full px-8 h-20 shadow-2xl shadow-black/40 font-['Manrope'] tracking-tight">
+    <div class="flex items-center gap-8">
+      <span class="text-2xl font-bold tracking-tighter text-[#FF6600]">Vanta Ledger</span>
+      <nav class="flex items-center gap-6 h-full">
+        <a class="text-[#FF6600] border-b-2 border-[#FF6600] font-semibold py-4" href="#">Mês</a>
+        <a class="text-gray-400 hover:text-white transition-colors py-4" href="#">Semana</a>
+        <a class="text-gray-400 hover:text-white transition-colors py-4" href="#">Dia</a>
+      </nav>
+    </div>
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-2 bg-[#2a2a2a] px-4 py-2 rounded-lg cursor-pointer hover:bg-[#353534] transition-all select-none">
+        <button onclick="mudarMes(-1)" class="text-[#FF6600] hover:text-white transition-colors">
+          <span class="material-symbols-outlined text-sm">chevron_left</span>
+        </button>
+        <span id="label_mes" class="text-on-surface font-semibold min-w-[130px] text-center">—</span>
+        <button onclick="mudarMes(1)" class="text-[#FF6600] hover:text-white transition-colors">
+          <span class="material-symbols-outlined text-sm">chevron_right</span>
+        </button>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="irHoje()" class="p-2 text-gray-400 hover:text-white transition-all rounded-lg hover:bg-[#2a2a2a]" title="Ir para hoje">
+          <span class="material-symbols-outlined">calendar_today</span>
+        </button>
+        <button onclick="carregarMes()" class="p-2 text-gray-400 hover:text-white transition-all rounded-lg hover:bg-[#2a2a2a]" title="Recarregar">
+          <span class="material-symbols-outlined" id="icon_sync">sync</span>
+        </button>
+        <button class="p-2 text-gray-400 hover:text-white transition-all rounded-lg hover:bg-[#2a2a2a]">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+        <div class="w-10 h-10 rounded-full border border-[#FF6600]/20 bg-[#FF6600]/10 flex items-center justify-center ml-2">
+          <span class="material-symbols-outlined text-[#FF6600]">person</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Workspace -->
+  <div class="flex-1 p-6 flex flex-col gap-5 overflow-hidden">
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-3 gap-5 flex-shrink-0">
+      <!-- Vendas Hoje -->
+      <div class="bg-surface-container-low p-6 rounded-lg shadow-xl shadow-black/20">
+        <p class="text-xs font-label uppercase tracking-widest text-gray-400 mb-2">Vendas de Hoje</p>
+        <h2 id="kpi_hoje" class="text-2xl font-bold text-white font-['Manrope']">—</h2>
+        <div class="flex gap-4 mt-4">
+          <div id="kpi_vs_media" class="flex items-center gap-1">
+            <span class="material-symbols-outlined text-gray-500 text-xs">trending_flat</span>
+            <span class="text-[11px] font-semibold text-gray-500">vs. Média Diária</span>
+          </div>
+        </div>
+      </div>
+      <!-- Média Diária -->
+      <div class="bg-surface-container-low p-6 rounded-lg shadow-xl shadow-black/20 flex items-center">
+        <div class="flex-1">
+          <p class="text-xs font-label uppercase tracking-widest text-gray-400 mb-1">Média Diária</p>
+          <h2 id="kpi_media" class="text-2xl font-bold text-white font-['Manrope']">—</h2>
+          <p id="kpi_media_sub" class="text-[10px] text-gray-500 mt-2">Calculando...</p>
+        </div>
+        <div class="w-12 h-12 opacity-30 ml-4">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polyline points="4,36 16,20 24,28 36,12 44,18" stroke="#FF6600" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <!-- % da Meta -->
+      <div class="bg-primary-container p-6 rounded-lg shadow-2xl shadow-orange-900/20 flex flex-col justify-between">
+        <div>
+          <p class="text-xs font-label uppercase tracking-widest text-white/70 mb-1">Status do Ciclo</p>
+          <h2 id="kpi_meta_pct" class="text-2xl font-black text-white font-['Manrope']">—</h2>
+        </div>
+        <div>
+          <div class="w-full bg-black/20 h-1.5 rounded-full mt-4">
+            <div id="kpi_meta_bar" class="h-full bg-white rounded-full transition-all duration-700" style="width:0%"></div>
+          </div>
+          <p id="kpi_meta_sub" class="text-[10px] text-white/60 mt-1">da meta mensal</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendário -->
+    <div class="flex-1 flex flex-col min-h-0">
+      <!-- Dias da semana -->
+      <div class="grid grid-cols-7 mb-2 text-center text-[10px] font-bold uppercase tracking-widest text-gray-500">
+        <div>Domingo</div><div>Segunda</div><div>Terça</div>
+        <div>Quarta</div><div>Quinta</div><div>Sexta</div><div>Sábado</div>
+      </div>
+      <!-- Grid -->
+      <div id="cal_grid" class="flex-1 grid grid-cols-7 gap-[3px] bg-[#0a0a0a]">
+        <!-- preenchido via JS -->
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="bg-surface-container-low px-5 py-3 rounded-lg flex items-center justify-between border border-[#FF6600]/10 flex-shrink-0">
+      <div class="flex items-center gap-4">
+        <div class="p-2 bg-[#FF6600]/10 rounded-lg">
+          <span class="material-symbols-outlined text-[#FF6600]">insights</span>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold text-white uppercase tracking-wider">Insight Mensal</h4>
+          <p id="insight_txt" class="text-[11px] text-gray-400">Carregando análise...</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="window.print()" class="px-4 py-2 bg-surface-container-high hover:bg-[#353534] text-xs font-bold rounded-lg transition-colors text-white">
+          Exportar PDF
+        </button>
+        <button class="px-4 py-2 bg-primary-container text-white text-xs font-bold rounded-lg hover:shadow-lg hover:shadow-orange-900/30 transition-all">
+          Relatório Detalhado
+        </button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const SUPABASE_URL = 'https://vfyamghgvabmdimngwev.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmeWFtZ2hndmFibWRpbW5nd2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NDM3NTMsImV4cCI6MjA5MjExOTc1M30.n0z94cx-0Wwn7--wfihYiux5UPK0pUnSHLHpqOrLNnM';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+let anoAtual  = new Date().getFullYear();
+let mesAtual  = new Date().getMonth(); // 0-indexed
+const hoje    = new Date();
+const hojeStr = hoje.toISOString().split('T')[0];
+
+function brl(v) {
+  return (v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+
+function mudarMes(delta) {
+  mesAtual += delta;
+  if (mesAtual > 11) { mesAtual = 0; anoAtual++; }
+  if (mesAtual < 0)  { mesAtual = 11; anoAtual--; }
+  carregarMes();
+}
+
+function irHoje() {
+  anoAtual = new Date().getFullYear();
+  mesAtual = new Date().getMonth();
+  carregarMes();
+}
+
+async function carregarMes() {
+  const sync = document.getElementById('icon_sync');
+  sync.classList.add('animate-spin');
+
+  const inicioMes = new Date(anoAtual, mesAtual, 1);
+  const fimMes    = new Date(anoAtual, mesAtual + 1, 0);
+  const strInicio = inicioMes.toISOString().split('T')[0];
+  const strFim    = fimMes.toISOString().split('T')[0];
+
+  document.getElementById('label_mes').textContent = `${MESES_PT[mesAtual]} de ${anoAtual}`;
+
+  // Busca paginada — Supabase limita 1000 linhas por request
+  const PAGE = 1000;
+  let allData = [], offset = 0, fetchError = null;
+  while (true) {
+    const { data: page, error: err } = await sb
+      .from('saidas')
+      .select('data_venda, sub_total')
+      .gte('data_venda', strInicio)
+      .lte('data_venda', strFim)
+      .eq('operacao', 'V')
+      .gt('quantidade_vendida', 0)
+      .range(offset, offset + PAGE - 1);
+    if (err) { fetchError = err; break; }
+    if (!page?.length) break;
+    allData = allData.concat(page);
+    if (page.length < PAGE) break;
+    offset += PAGE;
+  }
+
+  sync.classList.remove('animate-spin');
+
+  if (fetchError) { console.error(fetchError); return; }
+
+  // Agrupa por dia
+  const porDia = {};
+  allData.forEach(r => {
+    const d = r.data_venda?.split('T')[0] || r.data_venda;
+    porDia[d] = (porDia[d] || 0) + parseFloat(r.sub_total || 0);
+  });
+
+  const diasComVenda  = Object.keys(porDia).filter(d => porDia[d] > 0);
+  const totalMes      = Object.values(porDia).reduce((a, b) => a + b, 0);
+  const mediaDiaria   = diasComVenda.length ? totalMes / diasComVenda.length : 0;
+  const vendasHoje    = porDia[hojeStr] || 0;
+  const metaMensal    = parseFloat(document.getElementById('meta_mensal').value) || 130000;
+  const pctMeta       = Math.min(Math.round((totalMes / metaMensal) * 100), 999);
+
+  // KPIs
+  document.getElementById('kpi_hoje').textContent = brl(vendasHoje);
+  document.getElementById('kpi_media').textContent = brl(mediaDiaria);
+  document.getElementById('kpi_media_sub').textContent =
+    `${diasComVenda.length} dias com vendas em ${MESES_PT[mesAtual]}`;
+  document.getElementById('kpi_meta_pct').textContent = `${pctMeta}% da Meta`;
+  document.getElementById('kpi_meta_bar').style.width = `${Math.min(pctMeta, 100)}%`;
+  document.getElementById('kpi_meta_sub').textContent =
+    `${brl(totalMes)} de ${brl(metaMensal)}`;
+
+  // vs media hoje
+  if (vendasHoje > 0 && mediaDiaria > 0) {
+    const pct = Math.round(((vendasHoje - mediaDiaria) / mediaDiaria) * 100);
+    const up  = pct >= 0;
+    document.getElementById('kpi_vs_media').innerHTML = `
+      <span class="material-symbols-outlined ${up?'text-green-500':'text-orange-500'} text-xs"
+        style="font-variation-settings:'FILL' 1;">${up?'trending_up':'trending_down'}</span>
+      <span class="text-[11px] font-semibold ${up?'text-green-500':'text-orange-500'}">
+        ${up?'+':''}${pct}% vs. Média Diária
+      </span>`;
+  }
+
+  // Insight
+  const melhorDia = diasComVenda.sort((a,b) => porDia[b]-porDia[a])[0];
+  if (melhorDia) {
+    const [, , dd] = melhorDia.split('-');
+    document.getElementById('insight_txt').textContent =
+      `Melhor dia do mês: dia ${parseInt(dd)} com ${brl(porDia[melhorDia])}. ` +
+      (pctMeta >= 80
+        ? `Mês em boa trajetória — ${pctMeta}% da meta atingida.`
+        : `Faltam ${brl(metaMensal - totalMes)} para atingir a meta.`);
+  }
+
+  // Busca paginada do mês anterior para comparação semanal nos sábados
+  const anoAnt    = mesAtual === 0 ? anoAtual - 1 : anoAtual;
+  const mesAntIdx = mesAtual === 0 ? 11 : mesAtual - 1;
+  const strInicioAnt = new Date(anoAnt, mesAntIdx, 1).toISOString().split('T')[0];
+  const strFimAnt    = new Date(anoAnt, mesAntIdx + 1, 0).toISOString().split('T')[0];
+  let allDataAnt = [], offsetAnt = 0;
+  while (true) {
+    const { data: pageAnt } = await sb
+      .from('saidas')
+      .select('data_venda, sub_total')
+      .gte('data_venda', strInicioAnt)
+      .lte('data_venda', strFimAnt)
+      .eq('operacao', 'V')
+      .gt('quantidade_vendida', 0)
+      .range(offsetAnt, offsetAnt + PAGE - 1);
+    if (!pageAnt?.length) break;
+    allDataAnt = allDataAnt.concat(pageAnt);
+    if (pageAnt.length < PAGE) break;
+    offsetAnt += PAGE;
+  }
+
+  const porDiaAnt = {};
+  allDataAnt.forEach(r => {
+    const d = r.data_venda?.split('T')[0] || r.data_venda;
+    porDiaAnt[d] = (porDiaAnt[d] || 0) + parseFloat(r.sub_total || 0);
+  });
+
+  renderCalendario(porDia, porDiaAnt, fimMes.getDate());
+}
+
+function renderCalendario(porDia, porDiaAnt, totalDias) {
+  const grid = document.getElementById('cal_grid');
+  grid.innerHTML = '';
+
+  const primeiroDia = new Date(anoAtual, mesAtual, 1).getDay(); // 0=Dom
+  const ultimoDia   = totalDias;
+  const mesAnterior = new Date(anoAtual, mesAtual, 0);
+  const totalCelulas = Math.ceil((primeiroDia + ultimoDia) / 7) * 7;
+
+  const anoAnt    = mesAtual === 0 ? anoAtual - 1 : anoAtual;
+  const mesAntIdx = mesAtual === 0 ? 11 : mesAtual - 1;
+  const primeiroDiaAnt  = new Date(anoAnt, mesAntIdx, 1).getDay();
+  const totalDiasAnt    = new Date(anoAnt, mesAntIdx + 1, 0).getDate();
+
+  // Soma os dias de uma linha do calendário para um dado mês
+  function somaLinha(linha, pDia, pFirst, pTotal, pAno, pMes) {
+    let total = 0;
+    for (let col = 0; col < 7; col++) {
+      const d = linha * 7 + col - pFirst + 1;
+      if (d >= 1 && d <= pTotal) {
+        const s = `${pAno}-${String(pMes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        total += pDia[s] || 0;
+      }
+    }
+    return total;
+  }
+
+  for (let i = 0; i < totalCelulas; i++) {
+    const cel = document.createElement('div');
+    const diaOffset = i - primeiroDia + 1;
+    const coluna    = i % 7; // 0=Dom … 6=Sáb
+    const linha     = Math.floor(i / 7);
+
+    // Dias do mês anterior
+    if (i < primeiroDia) {
+      const d = mesAnterior.getDate() - primeiroDia + i + 1;
+      cel.className = 'bg-surface-container-low/20 p-3 flex flex-col justify-between';
+      cel.innerHTML = `<span class="text-gray-700 text-xs font-bold self-end">${d}</span>
+        <span class="text-[10px] text-gray-700 text-center font-bold uppercase tracking-tighter">Mês Ant.</span>`;
+      grid.appendChild(cel);
+      continue;
+    }
+
+    // Dias do próximo mês
+    if (diaOffset > ultimoDia) {
+      const d = diaOffset - ultimoDia;
+      cel.className = 'bg-surface-container-low/20 p-3 flex flex-col justify-between';
+      cel.innerHTML = `<span class="text-gray-700 text-xs font-bold self-end">${d}</span>
+        <span class="text-[10px] text-gray-700 text-center font-bold uppercase tracking-tighter">Próx. Mês</span>`;
+      grid.appendChild(cel);
+      continue;
+    }
+
+    const diaStr = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${String(diaOffset).padStart(2,'0')}`;
+    const total  = porDia[diaStr] || 0;
+    const isHoje = diaStr === hojeStr;
+    const isFuturo = new Date(diaStr) > hoje;
+
+    // Sábado: bloco de resumo semanal com totais e comparação
+    let semanaBlock = '';
+    if (coluna === 6 && !isFuturo) {
+      const semAtual = somaLinha(linha, porDia, primeiroDia, ultimoDia, anoAtual, mesAtual);
+      const semAnt   = somaLinha(linha, porDiaAnt, primeiroDiaAnt, totalDiasAnt, anoAnt, mesAntIdx);
+      const pct = semAnt > 0 ? Math.round(((semAtual - semAnt) / semAnt) * 100) : null;
+      const cor   = pct === null ? 'text-gray-500' : pct > 0 ? 'text-green-400' : pct < 0 ? 'text-orange-400' : 'text-gray-400';
+      const seta  = pct === null ? '' : pct > 0 ? '▲' : pct < 0 ? '▼' : '=';
+      const pctTxt = pct === null ? '' : `${seta} ${pct > 0 ? '+' : ''}${pct}%`;
+      semanaBlock = `
+        <div class="w-full mt-1 pt-1 border-t border-white/10">
+          <p class="text-[8px] text-gray-600 uppercase tracking-widest text-center mb-0.5">semana</p>
+          <p class="text-[11px] font-black text-white text-center font-['Manrope']">${semAtual > 0 ? brl(semAtual) : '—'}</p>
+          ${semAnt > 0 ? `<p class="text-[9px] text-gray-400 text-center">Mês ant: ${brl(semAnt)}</p>` : ''}
+          ${pctTxt ? `<p class="text-[10px] font-bold text-center ${cor}">${pctTxt}</p>` : ''}
+        </div>`;
+    }
+
+    if (isHoje) {
+      cel.className = 'today-cell bg-[#2a2a2a] p-3 flex flex-col justify-between border-2 border-[#FF6600]/50 ring-1 ring-[#FF6600]/20 rounded-lg transform scale-[1.02] z-10';
+      cel.innerHTML = `
+        <div class="flex justify-between items-start w-full">
+          <span class="bg-[#FF6600] text-white text-[9px] px-1.5 py-0.5 rounded font-black uppercase">Hoje</span>
+          <span class="text-[#FF6600] text-sm font-black">${diaOffset}</span>
+        </div>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-lg font-black text-white font-['Manrope']">${total > 0 ? brl(total) : '—'}</span>
+          ${semanaBlock}
+        </div>`;
+    } else if (isFuturo) {
+      cel.className = 'bg-surface-container-low/40 p-3 flex flex-col justify-between group';
+      cel.innerHTML = `
+        <span class="text-gray-600 text-xs font-bold self-end">${diaOffset}</span>
+        <div class="flex flex-col items-center">
+          <span class="text-[10px] text-gray-700 font-bold">—</span>
+        </div>`;
+    } else {
+      cel.className = 'bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container hover:shadow-inner transition-all duration-300 cursor-pointer';
+      cel.innerHTML = `
+        <span class="text-on-surface text-xs font-bold self-end">${diaOffset}</span>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-sm font-bold text-white font-['Manrope']">${total > 0 ? brl(total) : '<span class="text-gray-700">R$ 0,00</span>'}</span>
+          ${semanaBlock}
+        </div>`;
+    }
+
+    grid.appendChild(cel);
+  }
+
+  // Ajusta grid-rows dinamicamente
+  const nLinhas = totalCelulas / 7;
+  grid.style.gridTemplateRows = `repeat(${nLinhas}, minmax(0, 1fr))`;
+}
+
+// Init
+carregarMes();
+</script>
+</body>
+</html>

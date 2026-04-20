@@ -1,0 +1,76 @@
+# Mapeamento Firebird → Supabase
+
+**Charset:** WIN1252
+**Driver:** fdb (Python)
+
+## Tabelas
+
+### SAIDAS (vendas / itens de venda)
+- **Chave:** `ID_SAIDA` (BIGINT)
+- **Delta:** `DATA_MANUTENCAO` (DATE)
+- **Campos úteis para dashboard:**
+  - ID_SAIDA, ID_PRODUTO, CODIGO, DESCRICAO
+  - NUMERO_CUPOM, NOTA_FISCAL, DATA_VENDA
+  - QUANTIDADE_VENDIDA, PRECO_VENDA, SUB_TOTAL, DESCONTO
+  - ID_CLIENTE, ID_VENDEDOR, ID_LOJA
+  - OPERACAO, DATA_MANUTENCAO
+
+### PRODUTOS (cadastro + preço)
+- **Chave:** `ID_PRODUTO` (BIGINT)
+- **Delta:** `DATA_ATUALIZACAO` (TIMESTAMP)
+- **Campos úteis:**
+  - ID_PRODUTO, CODIGO, DESCRICAO, UNIDADE
+  - PRECO, CUSTO_MEDIO, EST_MINIMO
+  - ID_GRUPO, GRUPO, ID_FORNECEDOR
+  - ATIVO, ULTIMA_VENDA, DATA_ATUALIZACAO
+
+### ESTOQUE (saldo por loja)
+- **Chave:** `ID_ESTOQUE` (BIGINT)
+- **Delta:** sem campo próprio — sincronizar via join com PRODUTOS.DATA_ATUALIZACAO
+- **Campos úteis:**
+  - ID_ESTOQUE, ID_PRODUTO, COD_PRODUTO, ID_LOJA, ESTOQUE
+
+### CLIENTE
+- **Chave:** `ID_CLIENTE` (INTEGER)
+- **Delta:** `DATA_ATUALIZACAO` (TIMESTAMP)
+- **Campos úteis:**
+  - ID_CLIENTE, CLIENTE, CGC_CPF, TELEFONE, CELULAR, WHATSAPP
+  - EMAIL, CIDADE, UF, ATIVO
+  - ULTIMA_COMPRA, CADASTRO, DATA_ATUALIZACAO
+
+### VENDEDOR
+- **Chave:** `ID_VENDEDOR` (INTEGER)
+- **Delta:** `DATA_ATUALIZACAO` (TIMESTAMP)
+- **Campos úteis:**
+  - ID_VENDEDOR, NOME, APELIDO, FUNCAO
+  - ATIVO, META, EMAIL, CELULAR, ID_LOJA
+  - DATA_ATUALIZACAO
+
+### FORNECEDOR
+- **Chave:** `ID_FORNECEDOR` (INTEGER)
+- **Delta:** sem campo — sync completo a cada ciclo
+- **Campos úteis:**
+  - ID_FORNECEDOR, RAZAO_SOC, NOME_FANTA, CNPJ
+  - CIDADE, UF, TELEFONE, EMAIL, WHATSAPP
+
+### CAIXA (movimentação financeira)
+- **Chave:** `ID_CAIXA` (NUMERIC 10,0)
+- **Delta:** `DATA` (DATE) — data do lançamento
+- **Campos úteis:**
+  - ID_CAIXA, DATA, VALOR, HISTORICO, NAT, NATUREZA
+  - ID_CONTA, CONTA, ID_CLIENTE, ID_VENDEDOR, ID_LOJA
+  - BAIXADO, BX, DATA_BAIXA
+
+### CONTA_RECEBER
+- **Chave:** `ID_FATURA` (BIGINT)
+- **Delta:** `DATA_ATUALIZACAO` (TIMESTAMP)
+- **Campos úteis:**
+  - ID_FATURA, NUMERO, PARCELA, EMISSAO, VENCIMENTO
+  - VALOR_PARCELA, VALOR_TOTAL, RECEBIDO, JUROS, DESCONTO
+  - ID_CLIENTE, ID_VENDEDOR, LOJA, BX, SITUACAO
+  - DATA_RECEB, DATA_ATUALIZACAO
+
+### CONTA_PAGAR
+- **Chave:** `ID_FATURA` (BIGINT)
+- **Delta:** `DATA_ATUALIZACAO` (TIMESTAMP)
+- **Estrutura idêntica a CONTA_RECEBER**

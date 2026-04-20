@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Obsidian — Produtos</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-container-highest": "#353534",
+        "surface-container-high":    "#2a2a2a",
+        "surface-container":         "#201f1f",
+        "surface-container-low":     "#1c1b1b",
+        "surface-container-lowest":  "#0e0e0e",
+        "surface":                   "#131313",
+        "on-surface":                "#e5e2e1",
+        "primary-container":         "#ff6600",
+        "on-primary-container":      "#561d00",
+      },
+      fontFamily: { headline: ["Manrope"], body: ["Inter"] }
+    }
+  }
+}
+</script>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+    vertical-align: middle;
+  }
+  body { font-family:'Inter',sans-serif; }
+  h1,h2,h3 { font-family:'Manrope',sans-serif; }
+  thead th { position: sticky; top: 0; z-index: 10; }
+</style>
+</head>
+<body class="bg-surface text-on-surface antialiased flex">
+
+<!-- Sidebar -->
+<aside class="flex flex-col border-r border-white/5 bg-[#0e0e0e] h-screen w-72 fixed left-0 top-0 z-40 font-['Manrope'] uppercase tracking-widest text-[10px]">
+  <div class="p-8 flex items-center gap-3">
+    <div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center">
+      <span class="material-symbols-outlined text-white" style="font-variation-settings:'FILL' 1;">grid_view</span>
+    </div>
+    <div>
+      <h1 class="text-[#FF6600] font-black text-sm">Obsidian</h1>
+      <p class="text-gray-500 text-[9px] tracking-widest">Analytical Suite</p>
+    </div>
+  </div>
+  <nav class="flex-1 px-4">
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="calendario_vendas.html">
+      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Sales Ledger</span>
+    </a>
+    <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="produtos.html">
+      <span class="material-symbols-outlined mr-3">bar_chart</span><span>Produtos</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
+      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Estoque</span>
+    </a>
+  </nav>
+  <div class="p-4 border-t border-white/5"></div>
+</aside>
+
+<!-- Main -->
+<main class="ml-72 flex-1 flex flex-col h-screen overflow-hidden">
+
+  <!-- Header com seletor de mês -->
+  <header class="flex items-center justify-between px-8 py-5 border-b border-white/5 bg-surface-container-lowest shrink-0">
+    <div>
+      <h2 class="text-lg font-black text-white font-['Manrope']">Análise de Produtos</h2>
+      <p class="text-xs text-gray-500 mt-0.5">Vendas por produto e grupo</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="mudarMes(-1)" class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all">
+        <span class="material-symbols-outlined text-base">chevron_left</span>
+      </button>
+      <span id="label_mes" class="text-sm font-bold text-white font-['Manrope'] w-40 text-center"></span>
+      <button onclick="mudarMes(1)" class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all">
+        <span class="material-symbols-outlined text-base">chevron_right</span>
+      </button>
+      <button onclick="carregarMes()" class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all">
+        <span class="material-symbols-outlined text-base" id="icon_sync">sync</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Conteúdo rolável -->
+  <div class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+
+    <!-- Gráfico de barras por grupo -->
+    <div class="bg-surface-container-low rounded-xl border border-white/5 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Vendas por Grupo</h3>
+        <span id="label_total_mes" class="text-xs text-gray-500"></span>
+      </div>
+      <div id="chart_status" class="flex items-center justify-center h-48 text-gray-700 text-sm">
+        <span class="material-symbols-outlined text-3xl mr-2">bar_chart</span> Carregando...
+      </div>
+      <div id="chart_wrap" class="hidden" style="height:280px;">
+        <canvas id="chart_grupos"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabela de produtos -->
+    <div class="bg-surface-container-low rounded-xl border border-white/5 overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Produtos</h3>
+        <div class="flex items-center gap-3">
+          <input id="busca" type="text" placeholder="Buscar produto..." oninput="buscarReset()"
+            class="bg-surface-container border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50 w-48 transition-colors"/>
+          <span id="label_count" class="text-xs text-gray-600"></span>
+        </div>
+      </div>
+
+      <div id="tabela_status" class="flex items-center justify-center h-32 text-gray-700 text-sm gap-2">
+        <span class="material-symbols-outlined text-3xl">inventory_2</span> Carregando...
+      </div>
+
+      <div id="tabela_wrap" class="hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full text-xs border-collapse">
+          <thead class="bg-surface-container-high">
+            <tr>
+              <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('codigo')">
+                Código <span id="ord_codigo" class="text-gray-700">↕</span>
+              </th>
+              <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('descricao')">
+                Descrição <span id="ord_descricao" class="text-gray-700">↕</span>
+              </th>
+              <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high">
+                Grupo
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('qtd')">
+                Qtd Vendida <span id="ord_qtd" class="text-gray-700">↕</span>
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('total')">
+                Total Vendido <span id="ord_total" class="text-[#FF6600]">↓</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        </div>
+        <!-- Paginação -->
+        <div class="flex items-center justify-between px-6 py-3 border-t border-white/5">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-gray-600 uppercase tracking-widest">Linhas:</span>
+            <div class="flex items-center gap-1 bg-surface-container border border-white/10 rounded-lg p-1">
+              <button onclick="setPorPagina(10)" id="pp_10" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">10</button>
+              <button onclick="setPorPagina(20)" id="pp_20" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">20</button>
+              <button onclick="setPorPagina(30)" id="pp_30" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">30</button>
+            </div>
+            <span id="label_pagina" class="text-xs text-gray-600"></span>
+          </div>
+          <div class="flex items-center gap-1" id="paginacao_btns"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const SUPABASE_URL = 'https://vfyamghgvabmdimngwev.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmeWFtZ2hndmFibWRpbW5nd2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NDM3NTMsImV4cCI6MjA5MjExOTc1M30.n0z94cx-0Wwn7--wfihYiux5UPK0pUnSHLHpqOrLNnM';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+let anoAtual = new Date().getFullYear();
+let mesAtual = new Date().getMonth();
+let chartInstance = null;
+let dadosProdutos = [];
+let ordemCampo = 'total';
+let ordemAsc   = false;
+let porPagina  = 20;
+let paginaAtual = 1;
+
+function brl(v) {
+  return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+function fmtQtd(v) {
+  return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2});
+}
+
+function mudarMes(delta) {
+  mesAtual += delta;
+  if (mesAtual > 11) { mesAtual = 0; anoAtual++; }
+  if (mesAtual < 0)  { mesAtual = 11; anoAtual--; }
+  carregarMes();
+}
+
+async function carregarMes() {
+  document.getElementById('label_mes').textContent = `${MESES_PT[mesAtual]} de ${anoAtual}`;
+  const sync = document.getElementById('icon_sync');
+  sync.classList.add('animate-spin');
+
+  const strInicio = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const strFim    = new Date(anoAtual, mesAtual+1, 0).toISOString().split('T')[0];
+
+  // Busca paginada de saidas
+  const PAGE = 1000;
+  let allData = [], offset = 0;
+  while (true) {
+    const { data: page, error } = await sb
+      .from('saidas')
+      .select('id_produto, codigo, descricao, quantidade_vendida, sub_total')
+      .gte('data_venda', strInicio)
+      .lte('data_venda', strFim)
+      .eq('operacao', 'V')
+      .gt('quantidade_vendida', 0)
+      .range(offset, offset + PAGE - 1);
+    if (error || !page?.length) break;
+    allData = allData.concat(page);
+    if (page.length < PAGE) break;
+    offset += PAGE;
+  }
+
+  // Busca info de grupo dos produtos presentes
+  const idsUnicos = [...new Set(allData.map(r => r.id_produto).filter(Boolean))];
+  const grupoMap  = {};
+  if (idsUnicos.length) {
+    const { data: prods } = await sb
+      .from('produtos')
+      .select('id_produto, grupo')
+      .in('id_produto', idsUnicos.slice(0, 400)); // limite seguro
+    (prods||[]).forEach(p => { grupoMap[p.id_produto] = p.grupo || 'Sem grupo'; });
+  }
+
+  // Agrega por produto
+  const porProduto = {};
+  allData.forEach(r => {
+    const key = r.codigo || r.id_produto;
+    if (!porProduto[key]) {
+      porProduto[key] = {
+        codigo:   r.codigo || '',
+        descricao: r.descricao || '',
+        grupo:    grupoMap[r.id_produto] || '—',
+        qtd:      0,
+        total:    0,
+      };
+    }
+    porProduto[key].qtd   += parseFloat(r.quantidade_vendida || 0);
+    porProduto[key].total += parseFloat(r.sub_total || 0);
+  });
+
+  dadosProdutos = Object.values(porProduto);
+  const totalMes = dadosProdutos.reduce((a,b) => a + b.total, 0);
+  document.getElementById('label_total_mes').textContent = `Total: ${brl(totalMes)}`;
+
+  // Agrega por grupo para o gráfico
+  const porGrupo = {};
+  dadosProdutos.forEach(p => {
+    porGrupo[p.grupo] = (porGrupo[p.grupo] || 0) + p.total;
+  });
+
+  try { renderGrafico(porGrupo); } catch(e) {
+    console.error('Chart.js erro:', e);
+    document.getElementById('chart_status').innerHTML =
+      '<span class="text-gray-600 text-xs">Gráfico indisponível</span>';
+    document.getElementById('chart_status').classList.remove('hidden');
+  }
+  renderTabela();
+
+  sync.classList.remove('animate-spin');
+}
+
+function renderGrafico(porGrupo) {
+  const labels = Object.keys(porGrupo).sort((a,b) => porGrupo[b] - porGrupo[a]);
+  const valores = labels.map(l => porGrupo[l]);
+
+  document.getElementById('chart_status').classList.add('hidden');
+  document.getElementById('chart_wrap').classList.remove('hidden');
+
+  if (chartInstance) chartInstance.destroy();
+
+  chartInstance = new Chart(document.getElementById('chart_grupos'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: valores,
+        backgroundColor: labels.map((_,i) =>
+          i === 0 ? 'rgba(255,102,0,0.85)' : `rgba(255,102,0,${0.55 - i * 0.04 < 0.15 ? 0.15 : 0.55 - i * 0.04})`
+        ),
+        borderColor:     'rgba(255,102,0,0.2)',
+        borderWidth: 1,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => brl(ctx.parsed.y)
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#9ca3af', font: { size: 10 } },
+          grid:  { color: 'rgba(255,255,255,0.04)' },
+        },
+        y: {
+          ticks: { color: '#9ca3af', font: { size: 10 },
+            callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k'
+          },
+          grid: { color: 'rgba(255,255,255,0.06)' },
+        }
+      }
+    }
+  });
+}
+
+function setPorPagina(n) {
+  porPagina  = n;
+  paginaAtual = 1;
+  ['10','20','30'].forEach(v => {
+    const btn = document.getElementById('pp_'+v);
+    btn.className = parseInt(v) === n
+      ? 'px-2.5 py-1 rounded text-[10px] font-bold bg-[#FF6600] text-white transition-colors'
+      : 'px-2.5 py-1 rounded text-[10px] font-bold text-gray-500 hover:text-white transition-colors';
+  });
+  renderTabela();
+}
+
+function ordenar(campo) {
+  if (ordemCampo === campo) ordemAsc = !ordemAsc;
+  else { ordemCampo = campo; ordemAsc = campo !== 'total'; }
+  ['codigo','descricao','qtd','total'].forEach(c => {
+    document.getElementById('ord_'+c).textContent = '↕';
+    document.getElementById('ord_'+c).style.color = '#374151';
+  });
+  document.getElementById('ord_'+campo).textContent = ordemAsc ? '↑' : '↓';
+  document.getElementById('ord_'+campo).style.color = '#FF6600';
+  paginaAtual = 1;
+  renderTabela();
+}
+
+function buscarReset() { paginaAtual = 1; renderTabela(); }
+
+function renderTabela() {
+  const busca = document.getElementById('busca').value.toLowerCase();
+  let dados = dadosProdutos.filter(p =>
+    !busca || p.codigo.toLowerCase().includes(busca) || p.descricao.toLowerCase().includes(busca)
+  );
+
+  dados.sort((a,b) => {
+    let va = a[ordemCampo], vb = b[ordemCampo];
+    if (typeof va === 'string') return ordemAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return ordemAsc ? va - vb : vb - va;
+  });
+
+  const total   = dados.length;
+  const nPaginas = Math.max(1, Math.ceil(total / porPagina));
+  if (paginaAtual > nPaginas) paginaAtual = nPaginas;
+  const inicio  = (paginaAtual - 1) * porPagina;
+  const pagina  = dados.slice(inicio, inicio + porPagina);
+
+  document.getElementById('tabela_status').classList.add('hidden');
+  document.getElementById('tabela_wrap').classList.remove('hidden');
+  document.getElementById('label_count').textContent = `${total} produto(s)`;
+  document.getElementById('label_pagina').textContent =
+    `${inicio + 1}–${Math.min(inicio + porPagina, total)} de ${total}`;
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  pagina.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    tr.className = (i%2===0 ? 'bg-surface-container-low/20' : '') +
+      ' border-b border-white/5 hover:bg-surface-container transition-colors';
+    tr.innerHTML = `
+      <td class="px-4 py-2 font-mono text-gray-400 text-[11px]">${p.codigo}</td>
+      <td class="px-4 py-2 text-gray-200">${p.descricao}</td>
+      <td class="px-4 py-2 text-gray-500 text-[11px]">${p.grupo}</td>
+      <td class="px-4 py-2 text-right text-gray-300">${fmtQtd(p.qtd)}</td>
+      <td class="px-4 py-2 text-right font-semibold text-white">${brl(p.total)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Botões de página
+  const container = document.getElementById('paginacao_btns');
+  container.innerHTML = '';
+  const btnCls = (ativo) => ativo
+    ? 'w-7 h-7 rounded text-[11px] font-bold bg-[#FF6600] text-white'
+    : 'w-7 h-7 rounded text-[11px] text-gray-500 hover:text-white hover:bg-surface-container transition-colors';
+
+  const addBtn = (label, onclick, ativo=false, disabled=false) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = btnCls(ativo);
+    if (disabled) { b.disabled = true; b.className += ' opacity-30 cursor-not-allowed'; }
+    else b.onclick = onclick;
+    container.appendChild(b);
+  };
+
+  addBtn('‹', () => { paginaAtual--; renderTabela(); }, false, paginaAtual === 1);
+
+  // Janela de páginas
+  let inicio2 = Math.max(1, paginaAtual - 2);
+  let fim2    = Math.min(nPaginas, inicio2 + 4);
+  if (fim2 - inicio2 < 4) inicio2 = Math.max(1, fim2 - 4);
+  for (let p = inicio2; p <= fim2; p++) {
+    const pg = p;
+    addBtn(String(pg), () => { paginaAtual = pg; renderTabela(); }, pg === paginaAtual);
+  }
+
+  addBtn('›', () => { paginaAtual++; renderTabela(); }, false, paginaAtual === nPaginas);
+}
+
+setPorPagina(20);
+carregarMes();
+</script>
+</body>
+</html>

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Vanta Ledger - Calendário de Vendas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#ffdbcd",
+                    "surface-container-highest": "#353534",
+                    "tertiary-fixed": "#d0e4ff",
+                    "surface-tint": "#ffb596",
+                    "on-tertiary-fixed": "#001d35",
+                    "secondary-container": "#7d3208",
+                    "on-primary-fixed": "#360f00",
+                    "secondary-fixed-dim": "#ffb596",
+                    "on-surface-variant": "#e3bfb1",
+                    "error-container": "#93000a",
+                    "tertiary": "#9ccaff",
+                    "on-secondary": "#581e00",
+                    "tertiary-container": "#009cfc",
+                    "on-error": "#690005",
+                    "on-primary-fixed-variant": "#7c2e00",
+                    "inverse-primary": "#a33e00",
+                    "surface-container-lowest": "#0e0e0e",
+                    "outline": "#aa8a7d",
+                    "surface-dim": "#131313",
+                    "surface-container-high": "#2a2a2a",
+                    "primary-fixed": "#ffdbcd",
+                    "on-surface": "#e5e2e1",
+                    "on-secondary-fixed-variant": "#7a3006",
+                    "on-tertiary-container": "#003155",
+                    "tertiary-fixed-dim": "#9ccaff",
+                    "background": "#131313",
+                    "outline-variant": "#5a4136",
+                    "on-secondary-container": "#ffa177",
+                    "surface-container-low": "#1c1b1b",
+                    "on-background": "#e5e2e1",
+                    "on-secondary-fixed": "#360f00",
+                    "primary": "#ffb596",
+                    "on-error-container": "#ffdad6",
+                    "inverse-surface": "#e5e2e1",
+                    "surface-bright": "#3a3939",
+                    "inverse-on-surface": "#313030",
+                    "surface-container": "#201f1f",
+                    "on-primary-container": "#561d00",
+                    "on-primary": "#581e00",
+                    "surface-variant": "#353534",
+                    "secondary": "#ffb596",
+                    "primary-container": "#ff6600",
+                    "surface": "#131313",
+                    "primary-fixed-dim": "#ffb596",
+                    "on-tertiary": "#003256",
+                    "on-tertiary-fixed-variant": "#00497b",
+                    "error": "#ffb4ab"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .headline { font-family: 'Manrope', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="flex flex-col h-full border-r border-white/5 bg-[#0e0e0e] h-screen w-72 fixed left-0 top-0 z-40 bg-gradient-to-r from-[#0e0e0e] to-[#0a0a0a] font-['Manrope'] uppercase tracking-widest text-[10px]">
+<div class="p-8 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+</div>
+<div>
+<h1 class="text-[#FF6600] font-black text-sm">Obsidian</h1>
+<p class="text-gray-500 text-[9px] tracking-widest">Analytical Suite</p>
+</div>
+</div>
+<nav class="flex-1 px-4">
+<!-- Sidebar Navigation Links -->
+<a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all ease-out duration-300" href="#">
+<span class="material-symbols-outlined mr-3">grid_view</span>
+<span>Overview</span>
+</a>
+<a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20 ease-out duration-300" href="#">
+<span class="material-symbols-outlined mr-3">calendar_view_month</span>
+<span>Sales Ledger</span>
+</a>
+<a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all ease-out duration-300" href="#">
+<span class="material-symbols-outlined mr-3">query_stats</span>
+<span>Performance</span>
+</a>
+<a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all ease-out duration-300" href="#">
+<span class="material-symbols-outlined mr-3">receipt_long</span>
+<span>Invoices</span>
+</a>
+<a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all ease-out duration-300" href="#">
+<span class="material-symbols-outlined mr-3">group</span>
+<span>Team</span>
+</a>
+</nav>
+<div class="px-8 mb-8">
+<button class="w-full py-4 bg-primary-container text-white font-bold rounded-lg shadow-xl shadow-primary-container/20 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">add</span>
+                NEW ENTRY
+            </button>
+</div>
+<div class="p-4 border-t border-white/5">
+<a class="flex items-center px-4 py-3 text-gray-500 mb-1 hover:text-[#FF6600] transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">help_outline</span>
+<span>Support</span>
+</a>
+<a class="flex items-center px-4 py-3 text-gray-500 hover:text-[#FF6600] transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">logout</span>
+<span>Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-72 flex flex-col h-screen bg-[#0a0a0a]">
+<!-- Top App Bar -->
+<header class="bg-[#1c1b1b]/80 backdrop-blur-xl docked full-width top-0 sticky z-50 flex justify-between items-center w-full px-8 py-0 h-20 shadow-2xl shadow-black/40 bg-[#1c1b1b] shadow-[0_1px_0_0_rgba(255,255,255,0.03)] font-['Manrope'] antialiased tracking-tight">
+<div class="flex items-center gap-8">
+<span class="text-2xl font-bold tracking-tighter text-[#FF6600]">Vanta Ledger</span>
+<nav class="flex items-center gap-6 h-full">
+<a class="text-[#FF6600] border-b-2 border-[#FF6600] font-semibold py-4" href="#">Mês</a>
+<a class="text-gray-400 hover:text-white transition-colors duration-200 py-4" href="#">Semana</a>
+<a class="text-gray-400 hover:text-white transition-colors duration-200 py-4" href="#">Dia</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 bg-[#2a2a2a] px-4 py-2 rounded-lg cursor-pointer hover:bg-[#353534] transition-all">
+<span class="material-symbols-outlined text-[#FF6600] text-sm">chevron_left</span>
+<span class="text-on-surface font-semibold">Abril de 2026</span>
+<span class="material-symbols-outlined text-[#FF6600] text-sm">chevron_right</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 text-gray-400 hover:text-white transition-all duration-300 rounded-lg hover:bg-[#2a2a2a]">
+<span class="material-symbols-outlined" data-icon="calendar_today">calendar_today</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-white transition-all duration-300 rounded-lg hover:bg-[#2a2a2a]">
+<span class="material-symbols-outlined" data-icon="sync">sync</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-white transition-all duration-300 rounded-lg hover:bg-[#2a2a2a]">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full border border-[#FF6600]/20 overflow-hidden ml-2 shadow-lg shadow-black/40">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="Close up portrait of a sophisticated male executive with glasses in professional dark studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhJknf4bQwlTm1LDOBfAymRuQW7JfAa3C27T3Sc2vyTchDZy_Lk-sgF8YPrqWzKV3X_YAw1Cddl8nGZZuIgA0zeKT1J_zh2cKkAWLFiELVD_gar5DNkAO73lcLFBHWfOKxM_UlQUy1rjxtl9TbFk-cdTLrFoAuerdCYX9CoIXLAawdvmzu7RDdm4lqPe_s7-jEJRDDKW3ofg3cIQk7p68gvG08A0NQV_Stsq22R_U8t40aYrNC6AGhERGd4RlYTnMaxZxffmTkf5dl"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Workspace -->
+<div class="flex-1 p-8 flex flex-col gap-6 overflow-hidden">
+<!-- KPI Header -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-surface-container-low p-6 rounded-lg shadow-xl shadow-black/20">
+<p class="text-xs font-label uppercase tracking-widest text-gray-400 mb-2">Vendas de Hoje</p>
+<div class="flex items-baseline gap-2">
+<h2 class="headline-md font-bold text-white">R$ 7.240,00</h2>
+</div>
+<div class="flex gap-4 mt-4">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-green-500 text-xs" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<span class="text-[11px] font-semibold text-green-500">+12% vs. Mês Anterior</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-orange-500 text-xs" style="font-variation-settings: 'FILL' 1;">trending_down</span>
+<span class="text-[11px] font-semibold text-orange-500">-5% vs. Ano Anterior</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-lg shadow-xl shadow-black/20 relative overflow-hidden flex items-center">
+<div class="flex-1">
+<p class="text-xs font-label uppercase tracking-widest text-gray-400 mb-1">Média Diária</p>
+<h2 class="headline-md font-bold text-white">R$ 4.850,20</h2>
+<p class="text-[10px] text-gray-500 mt-2">Calculado com base nos últimos 30 dias</p>
+</div>
+<div class="w-1/3 h-full opacity-20">
+<img alt="Performance Chart Overlay" class="w-full h-full object-cover grayscale invert" data-alt="Modern abstract data visualization showing growth trends with orange glowing lines on dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_rUm8S3uFFkhu5ox9jp5yd85X3XHC3vUXjifCIGJ8BY7hFbIFw_cSAlnITCZJnmVEzi2GQgWWjHV5wTdCkr9OOU893WJEz91Q0cKfAGJEzxTuZ4fgJz1f0j0MZy7vCTShOwwf_KLGbGELZDEDGu27Lz_NgpZcNIQ4wLbG0lC2VZME0R-VoznZezC8-5aejz8fZKGFLrCiJKEIu9WL4qCnIMFdGXQCOdJjrZcuK48o9FSgXwbhKiqcy4pfg8FtVolDvSrERxl_5T0z"/>
+</div>
+</div>
+<div class="bg-primary-container p-6 rounded-lg shadow-2xl shadow-primary-container/10 flex flex-col justify-between">
+<div>
+<p class="text-xs font-label uppercase tracking-widest text-on-primary-container/80 mb-1">Status do Ciclo</p>
+<h2 class="text-2xl font-black text-white">82% DA META</h2>
+</div>
+<div class="w-full bg-black/20 h-1.5 rounded-full mt-4">
+<div class="w-[82%] h-full bg-white rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Calendar Grid -->
+<div class="flex-1 flex flex-col min-h-0">
+<!-- Day Names -->
+<div class="grid grid-cols-7 mb-2 text-center text-[10px] font-label font-bold uppercase tracking-widest text-gray-500">
+<div>Domingo</div>
+<div>Segunda</div>
+<div>Terça</div>
+<div>Quarta</div>
+<div>Quinta</div>
+<div>Sexta</div>
+<div>Sábado</div>
+</div>
+<!-- Calendar Body -->
+<div class="flex-1 grid grid-cols-7 grid-rows-5 gap-[4px] bg-[#0a0a0a]">
+<!-- Row 1 -->
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container hover:shadow-inner transition-all duration-300">
+<span class="text-gray-600 text-xs font-bold self-end">29</span>
+<div class="flex flex-col items-center">
+<span class="text-xs font-semibold text-white/50">R$ 3.200,00</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container hover:shadow-inner transition-all duration-300">
+<span class="text-gray-600 text-xs font-bold self-end">30</span>
+<div class="flex flex-col items-center">
+<span class="text-xs font-semibold text-white/50">R$ 4.500,00</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container hover:shadow-inner transition-all duration-300">
+<span class="text-on-surface text-xs font-bold self-end">1</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 5.120,00</span>
+<span class="bg-green-500/10 text-green-500 text-[9px] px-2 py-0.5 rounded-full font-bold">+8%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container hover:shadow-inner transition-all duration-300">
+<span class="text-on-surface text-xs font-bold self-end">2</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 4.880,00</span>
+<span class="bg-gray-500/10 text-gray-500 text-[9px] px-2 py-0.5 rounded-full font-bold">AVG</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container hover:shadow-inner transition-all duration-300">
+<span class="text-on-surface text-xs font-bold self-end">3</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 6.300,00</span>
+<span class="bg-green-500/10 text-green-500 text-[9px] px-2 py-0.5 rounded-full font-bold">+24%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container hover:shadow-inner transition-all duration-300">
+<span class="text-on-surface text-xs font-bold self-end">4</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 2.100,00</span>
+<span class="bg-orange-500/10 text-orange-500 text-[9px] px-2 py-0.5 rounded-full font-bold">-15%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container hover:shadow-inner transition-all duration-300">
+<span class="text-on-surface text-xs font-bold self-end">5</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 3.800,00</span>
+<span class="bg-orange-500/10 text-orange-500 text-[9px] px-2 py-0.5 rounded-full font-bold">-5%</span>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group">
+<span class="text-on-surface text-xs font-bold self-end">6</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 4.200,00</span>
+<span class="bg-gray-500/10 text-gray-500 text-[9px] px-2 py-0.5 rounded-full font-bold">AVG</span>
+</div>
+</div>
+<!-- Today Cell -->
+<div class="bg-[#2a2a2a] p-3 flex flex-col justify-between border-2 border-[#FF6600]/40 shadow-[inset_0_0_20px_rgba(255,102,0,0.15)] ring-1 ring-[#FF6600]/20 rounded-lg transform scale-[1.02] z-10 transition-transform">
+<div class="flex justify-between items-start w-full">
+<span class="bg-[#FF6600] text-white text-[9px] px-1.5 py-0.5 rounded font-black tracking-tighter uppercase">Hoje</span>
+<span class="text-[#FF6600] text-sm font-black self-end">7</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<span class="text-lg font-black text-white">R$ 7.240,00</span>
+<span class="bg-green-500 text-white text-[9px] px-2 py-0.5 rounded-full font-bold shadow-lg shadow-green-500/20">+42%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group">
+<span class="text-on-surface text-xs font-bold self-end">8</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 5.900,00</span>
+<span class="bg-green-500/10 text-green-500 text-[9px] px-2 py-0.5 rounded-full font-bold">+12%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group">
+<span class="text-on-surface text-xs font-bold self-end">9</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 4.400,00</span>
+<span class="bg-orange-500/10 text-orange-500 text-[9px] px-2 py-0.5 rounded-full font-bold">-2%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group">
+<span class="text-on-surface text-xs font-bold self-end">10</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 6.100,00</span>
+<span class="bg-green-500/10 text-green-500 text-[9px] px-2 py-0.5 rounded-full font-bold">+18%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group">
+<span class="text-on-surface text-xs font-bold self-end">11</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 4.900,00</span>
+<span class="bg-gray-500/10 text-gray-500 text-[9px] px-2 py-0.5 rounded-full font-bold">AVG</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-3 flex flex-col justify-between group">
+<span class="text-on-surface text-xs font-bold self-end">12</span>
+<div class="flex flex-col items-center gap-1">
+<span class="text-sm font-bold text-white">R$ 3.500,00</span>
+<span class="bg-orange-500/10 text-orange-500 text-[9px] px-2 py-0.5 rounded-full font-bold">-10%</span>
+</div>
+</div>
+<!-- Generate remaining grid (Mock) -->
+<!-- Row 3 to 5 Loop -->
+<script>
+                        const gridContainer = document.querySelector('.grid-rows-5');
+                        for(let i=13; i<=31; i++){
+                            const div = document.createElement('div');
+                            div.className = "bg-surface-container-low p-3 flex flex-col justify-between group hover:bg-surface-container transition-all duration-300";
+                            
+                            const val = (Math.random() * 5000 + 1500).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                            const perf = Math.floor(Math.random() * 40) - 20;
+                            const perfClass = perf >= 0 ? "bg-green-500/10 text-green-500" : "bg-orange-500/10 text-orange-500";
+                            const perfIcon = perf >= 0 ? "+" : "";
+
+                            div.innerHTML = `
+                                <span class="text-on-surface text-xs font-bold self-end">${i}</span>
+                                <div class="flex flex-col items-center gap-1">
+                                    <span class="text-sm font-bold text-white">${val}</span>
+                                    <span class="${perfClass} text-[9px] px-2 py-0.5 rounded-full font-bold">${perfIcon}${perf}%</span>
+                                </div>
+                            `;
+                            gridContainer.appendChild(div);
+                        }
+                        // Add empty slots for next month
+                        for(let i=1; i<=2; i++){
+                            const div = document.createElement('div');
+                            div.className = "bg-surface-container-low/30 p-3 flex flex-col justify-between";
+                            div.innerHTML = `
+                                <span class="text-gray-700 text-xs font-bold self-end">${i}</span>
+                                <div class="flex flex-col items-center">
+                                    <span class="text-[10px] text-gray-700 font-bold uppercase tracking-tighter">Próx. Mês</span>
+                                </div>
+                            `;
+                            gridContainer.appendChild(div);
+                        }
+                    </script>
+</div>
+</div>
+<!-- Footer Analysis Overlay -->
+<div class="bg-surface-container-low p-4 rounded-lg flex items-center justify-between border-t border-[#FF6600]/10">
+<div class="flex items-center gap-4">
+<div class="p-2 bg-primary-container/10 rounded-lg">
+<span class="material-symbols-outlined text-[#FF6600]">insights</span>
+</div>
+<div>
+<h4 class="text-xs font-bold text-white uppercase tracking-wider">Insight Semanal</h4>
+<p class="text-[11px] text-gray-400">O desempenho médio subiu 4% após a campanha de e-mail de Terça-feira.</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 bg-surface-container-high hover:bg-surface-bright text-xs font-bold rounded-lg transition-colors">Exportar PDF</button>
+<button class="px-4 py-2 bg-primary-container text-white text-xs font-bold rounded-lg hover:shadow-lg shadow-primary-container/20 transition-all">Relatório Detalhado</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

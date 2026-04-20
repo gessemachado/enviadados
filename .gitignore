@@ -1,0 +1,24 @@
+# Credenciais — nunca versionar
+.env
+config.ini
+
+# Controle de sync
+ultimo_sync.json
+sync_log*.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+dist/
+build/
+*.spec
+*.egg-info/
+
+# PyInstaller
+dist/
+build/
+
+# OS
+Thumbs.db
+.DS_Store
