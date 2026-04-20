@@ -50,7 +50,7 @@ tailwind.config = {
   .today-cell { animation: pulse-glow 3s ease-in-out infinite; }
 </style>
 </head>
-<body class="bg-surface text-on-surface antialiased overflow-hidden">
+<body class="bg-surface text-on-surface antialiased">
 
 <!-- META CONFIG (oculto) -->
 <input type="hidden" id="meta_mensal" value="130000">
@@ -87,7 +87,7 @@ tailwind.config = {
 </aside>
 
 <!-- Main -->
-<main class="ml-72 flex flex-col h-screen bg-[#0a0a0a]">
+<main class="ml-72 flex flex-col min-h-screen bg-[#0a0a0a]">
 
   <!-- Header -->
   <header class="bg-[#1c1b1b]/80 backdrop-blur-xl sticky top-0 z-50 flex justify-between items-center w-full px-8 h-20 shadow-2xl shadow-black/40 font-['Manrope'] tracking-tight">
@@ -127,7 +127,7 @@ tailwind.config = {
   </header>
 
   <!-- Workspace -->
-  <div class="flex-1 p-6 flex flex-col gap-5 overflow-hidden">
+  <div class="flex-1 p-6 flex flex-col gap-5 overflow-y-auto">
 
     <!-- KPIs -->
     <div class="grid grid-cols-3 gap-5 flex-shrink-0">
