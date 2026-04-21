@@ -171,6 +171,55 @@ tailwind.config = {
       </div>
     </div>
 
+    <!-- Gráfico por vendedor -->
+    <div class="bg-surface-container-low rounded-xl border border-white/5 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Faturamento por Vendedor</h3>
+        <span id="label_vendedores" class="text-xs text-gray-500"></span>
+      </div>
+      <div id="chart_vend_status" class="flex items-center justify-center h-48 text-gray-700 text-sm gap-2">
+        <span class="material-symbols-outlined text-3xl">person</span> Carregando...
+      </div>
+      <div id="chart_vend_wrap" class="hidden" style="height:300px;">
+        <canvas id="chart_vendedores"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabela por vendedor -->
+    <div class="bg-surface-container-low rounded-xl border border-white/5 overflow-hidden">
+      <div class="px-6 py-4 border-b border-white/5">
+        <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Detalhamento por Vendedor</h3>
+      </div>
+      <div id="tabela_vend_status" class="flex items-center justify-center h-32 text-gray-700 text-sm gap-2">
+        <span class="material-symbols-outlined text-3xl">table_view</span> Carregando...
+      </div>
+      <div id="tabela_vend_wrap" class="hidden overflow-x-auto">
+        <table class="w-full text-xs border-collapse">
+          <thead class="bg-surface-container-high">
+            <tr>
+              <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenarVend('nome')">
+                Vendedor <span id="vord_nome" class="text-gray-700">↕</span>
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenarVend('qtd')">
+                Qtd Vendas <span id="vord_qtd" class="text-gray-700">↕</span>
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenarVend('total')">
+                Total Faturado <span id="vord_total" class="text-[#FF6600]">↓</span>
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenarVend('pct')">
+                % Total <span id="vord_pct" class="text-gray-700">↕</span>
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenarVend('ticket')">
+                Ticket Médio <span id="vord_ticket" class="text-gray-700">↕</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="tbody_vend"></tbody>
+          <tfoot id="tfoot_vend" class="border-t border-white/10"></tfoot>
+        </table>
+      </div>
+    </div>
+
   </div>
 </main>
 
@@ -185,9 +234,13 @@ const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
 let anoAtual  = new Date().getFullYear();
 let mesAtual  = new Date().getMonth();
 let chartInstance = null;
+let chartVendInstance = null;
 let dadosPlanos = [];
+let dadosVendedores = [];
 let ordemCampo = 'total';
 let ordemAsc   = false;
+let ordemVendCampo = 'total';
+let ordemVendAsc   = false;
 
 function brl(v) {
   return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -208,6 +261,10 @@ async function carregarMes() {
   document.getElementById('chart_wrap').classList.add('hidden');
   document.getElementById('tabela_status').classList.remove('hidden');
   document.getElementById('tabela_wrap').classList.add('hidden');
+  document.getElementById('chart_vend_status').classList.remove('hidden');
+  document.getElementById('chart_vend_wrap').classList.add('hidden');
+  document.getElementById('tabela_vend_status').classList.remove('hidden');
+  document.getElementById('tabela_vend_wrap').classList.add('hidden');
 
   const strInicio = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
   const strFim    = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoAtual, mesAtual+1, 0).getDate()}`;
@@ -218,7 +275,7 @@ async function carregarMes() {
   while (true) {
     const { data: page, error } = await sb
       .from('saidas')
-      .select('id_plano, sub_total, quantidade_vendida')
+      .select('id_plano, id_vendedor, sub_total, quantidade_vendida')
       .gte('data_venda', strInicio)
       .lte('data_venda', strFim)
       .eq('operacao', 'V')
@@ -269,12 +326,36 @@ async function carregarMes() {
   document.getElementById('kpi_plano').textContent  = planoPrincipal?.descricao || '—';
   document.getElementById('label_planos').textContent = `${dadosPlanos.length} planos`;
 
+  // Busca nomes dos vendedores
+  const vendMap = {};
+  const { data: vends } = await sb.from('vendedores').select('id_vendedor, apelido, nome');
+  (vends || []).forEach(v => { vendMap[v.id_vendedor] = v.apelido || v.nome || `Vendedor ${v.id_vendedor}`; });
+
+  // Agrega por vendedor
+  const porVend = {};
+  allData.forEach(r => {
+    const id = r.id_vendedor ?? 0;
+    if (!porVend[id]) porVend[id] = { id_vendedor: id, nome: vendMap[id] || (id === 0 ? 'Sem vendedor' : `Vendedor ${id}`), qtd: 0, total: 0 };
+    porVend[id].qtd   += 1;
+    porVend[id].total += parseFloat(r.sub_total || 0);
+  });
+  dadosVendedores = Object.values(porVend).map(v => ({
+    ...v,
+    pct:    totalGeral > 0 ? (v.total / totalGeral) * 100 : 0,
+    ticket: v.qtd > 0 ? v.total / v.qtd : 0,
+  }));
+  document.getElementById('label_vendedores').textContent = `${dadosVendedores.length} vendedores`;
+
   try { renderGrafico(); } catch(e) {
-    document.getElementById('chart_status').innerHTML =
-      '<span class="text-gray-600 text-xs">Gráfico indisponível</span>';
+    document.getElementById('chart_status').innerHTML = '<span class="text-gray-600 text-xs">Gráfico indisponível</span>';
     document.getElementById('chart_status').classList.remove('hidden');
   }
+  try { renderGraficoVend(); } catch(e) {
+    document.getElementById('chart_vend_status').innerHTML = '<span class="text-gray-600 text-xs">Gráfico indisponível</span>';
+    document.getElementById('chart_vend_status').classList.remove('hidden');
+  }
   renderTabela();
+  renderTabelaVend();
   sync.classList.remove('animate-spin');
 }
 
@@ -391,6 +472,114 @@ function renderTabela() {
       <td class="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Total</td>
       <td class="px-4 py-3 text-right font-bold text-white">${totalQtd.toLocaleString('pt-BR')}</td>
       <td class="px-4 py-3 text-right font-bold text-[#FF6600]">${brl(totalFat)}</td>
+      <td class="px-4 py-3 text-right font-bold text-white">100%</td>
+      <td class="px-4 py-3 text-right font-bold text-gray-300">${brl(totalQtd > 0 ? totalFat/totalQtd : 0)}</td>
+    </tr>
+  `;
+}
+
+function renderGraficoVend() {
+  const sorted = [...dadosVendedores].sort((a,b) => b.total - a.total);
+  const labels = sorted.map(v => v.nome);
+  const valores = sorted.map(v => v.total);
+
+  document.getElementById('chart_vend_status').classList.add('hidden');
+  document.getElementById('chart_vend_wrap').classList.remove('hidden');
+
+  if (chartVendInstance) chartVendInstance.destroy();
+
+  chartVendInstance = new Chart(document.getElementById('chart_vendedores'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: valores,
+        backgroundColor: labels.map((_,i) =>
+          i === 0 ? 'rgba(99,179,237,0.9)' : `rgba(99,179,237,${Math.max(0.15, 0.6 - i * 0.06)})`
+        ),
+        borderColor:  'rgba(99,179,237,0.2)',
+        borderWidth: 1,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => brl(ctx.parsed.y),
+            afterLabel: ctx => {
+              const v = dadosVendedores.find(d => d.nome === ctx.label);
+              return v ? `${v.qtd.toLocaleString('pt-BR')} vendas · ${v.pct.toFixed(1)}%` : '';
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 30 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { ticks: { color: '#9ca3af', font: { size: 10 }, callback: v => 'R$ '+(v>=1000?(v/1000).toFixed(0)+'k':v) }, grid: { color: 'rgba(255,255,255,0.06)' } }
+      }
+    }
+  });
+}
+
+const COLUNAS_VEND = ['nome','qtd','total','pct','ticket'];
+
+function ordenarVend(campo) {
+  if (ordemVendCampo === campo) ordemVendAsc = !ordemVendAsc;
+  else { ordemVendCampo = campo; ordemVendAsc = campo === 'nome'; }
+  COLUNAS_VEND.forEach(c => {
+    const el = document.getElementById('vord_'+c);
+    if (el) { el.textContent = '↕'; el.style.color = '#374151'; }
+  });
+  const el = document.getElementById('vord_'+campo);
+  if (el) { el.textContent = ordemVendAsc ? '↑' : '↓'; el.style.color = '#63b3ed'; }
+  renderTabelaVend();
+}
+
+function renderTabelaVend() {
+  let dados = [...dadosVendedores];
+  dados.sort((a,b) => {
+    let va = a[ordemVendCampo], vb = b[ordemVendCampo];
+    if (typeof va === 'string') return ordemVendAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return ordemVendAsc ? va - vb : vb - va;
+  });
+
+  document.getElementById('tabela_vend_status').classList.add('hidden');
+  document.getElementById('tabela_vend_wrap').classList.remove('hidden');
+
+  const tbody = document.getElementById('tbody_vend');
+  tbody.innerHTML = '';
+  dados.forEach((v, i) => {
+    const tr = document.createElement('tr');
+    tr.className = (i%2===0 ? 'bg-surface-container-low/20' : '') +
+      ' border-b border-white/5 hover:bg-surface-container transition-colors';
+    tr.innerHTML = `
+      <td class="px-4 py-3 text-gray-200 font-medium">${v.nome}</td>
+      <td class="px-4 py-3 text-right text-gray-300">${v.qtd.toLocaleString('pt-BR')}</td>
+      <td class="px-4 py-3 text-right font-semibold text-white">${brl(v.total)}</td>
+      <td class="px-4 py-3 text-right">
+        <div class="flex items-center justify-end gap-2">
+          <div class="w-16 bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+            <div class="h-full bg-[#63b3ed] rounded-full" style="width:${Math.min(v.pct,100).toFixed(1)}%"></div>
+          </div>
+          <span class="text-gray-300 tabular-nums w-12 text-right">${v.pct.toFixed(1)}%</span>
+        </div>
+      </td>
+      <td class="px-4 py-3 text-right text-gray-400">${brl(v.ticket)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const totalFat = dados.reduce((a,b) => a+b.total, 0);
+  const totalQtd = dados.reduce((a,b) => a+b.qtd,   0);
+  document.getElementById('tfoot_vend').innerHTML = `
+    <tr class="bg-surface-container-high">
+      <td class="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Total</td>
+      <td class="px-4 py-3 text-right font-bold text-white">${totalQtd.toLocaleString('pt-BR')}</td>
+      <td class="px-4 py-3 text-right font-bold text-[#63b3ed]">${brl(totalFat)}</td>
       <td class="px-4 py-3 text-right font-bold text-white">100%</td>
       <td class="px-4 py-3 text-right font-bold text-gray-300">${brl(totalQtd > 0 ? totalFat/totalQtd : 0)}</td>
     </tr>
