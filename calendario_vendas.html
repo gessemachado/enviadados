@@ -158,17 +158,14 @@ tailwind.config = {
           </svg>
         </div>
       </div>
-      <!-- % da Meta -->
+      <!-- Ticket Médio -->
       <div class="bg-primary-container p-6 rounded-lg shadow-2xl shadow-orange-900/20 flex flex-col justify-between">
         <div>
-          <p class="text-xs font-label uppercase tracking-widest text-white/70 mb-1">Status do Ciclo</p>
-          <h2 id="kpi_meta_pct" class="text-2xl font-black text-white font-['Manrope']">—</h2>
+          <p class="text-xs font-label uppercase tracking-widest text-white/70 mb-1">Ticket Médio</p>
+          <h2 id="kpi_ticket" class="text-2xl font-black text-white font-['Manrope']">—</h2>
         </div>
         <div>
-          <div class="w-full bg-black/20 h-1.5 rounded-full mt-4">
-            <div id="kpi_meta_bar" class="h-full bg-white rounded-full transition-all duration-700" style="width:0%"></div>
-          </div>
-          <p id="kpi_meta_sub" class="text-[10px] text-white/60 mt-1">da meta mensal</p>
+          <p id="kpi_ticket_sub" class="text-[10px] text-white/60 mt-4">por transação no mês</p>
         </div>
       </div>
     </div>
@@ -297,10 +294,10 @@ async function carregarMes() {
   document.getElementById('kpi_media').textContent = brl(mediaDiaria);
   document.getElementById('kpi_media_sub').textContent =
     `${diasComVenda.length} dias com vendas em ${MESES_PT[mesAtual]}`;
-  document.getElementById('kpi_meta_pct').textContent = `${pctMeta}% da Meta`;
-  document.getElementById('kpi_meta_bar').style.width = `${Math.min(pctMeta, 100)}%`;
-  document.getElementById('kpi_meta_sub').textContent =
-    `${brl(totalMes)} de ${brl(metaMensal)}`;
+  const ticketMedio = allData.length > 0 ? totalMes / allData.length : 0;
+  document.getElementById('kpi_ticket').textContent = brl(ticketMedio);
+  document.getElementById('kpi_ticket_sub').textContent =
+    `${allData.length.toLocaleString('pt-BR')} transações no mês`;
 
   // vs media hoje
   if (vendasHoje > 0 && mediaDiaria > 0) {
