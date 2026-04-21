@@ -182,6 +182,12 @@ tailwind.config = {
               <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('estoque')">
                 Estoque Atual <span id="ord_estoque" class="text-gray-700">↕</span>
               </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('pedidos')">
+                Pedidos <span id="ord_pedidos" class="text-gray-700">↕</span>
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('intervalo')">
+                Intervalo <span id="ord_intervalo" class="text-gray-700">↕</span>
+              </th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -255,7 +261,7 @@ async function carregarMes() {
   while (true) {
     const { data: page, error } = await sb
       .from('saidas')
-      .select('id_produto, codigo, descricao, quantidade_vendida, sub_total')
+      .select('id_produto, codigo, descricao, quantidade_vendida, sub_total, data_venda')
       .gte('data_venda', strInicio)
       .lte('data_venda', strFim)
       .eq('operacao', 'V')
@@ -304,13 +310,26 @@ async function carregarMes() {
         id_produto: r.id_produto,
         qtd:       0,
         total:     0,
+        pedidos:   0,
+        datas:     new Set(),
       };
     }
-    porProduto[key].qtd   += parseFloat(r.quantidade_vendida || 0);
-    porProduto[key].total += parseFloat(r.sub_total || 0);
+    porProduto[key].qtd     += parseFloat(r.quantidade_vendida || 0);
+    porProduto[key].total   += parseFloat(r.sub_total || 0);
+    porProduto[key].pedidos += 1;
+    if (r.data_venda) porProduto[key].datas.add(r.data_venda);
   });
 
-  dadosProdutos = Object.values(porProduto);
+  dadosProdutos = Object.values(porProduto).map(p => {
+    const datas = [...p.datas].sort();
+    let intervalo = null;
+    if (datas.length >= 2) {
+      const d1 = new Date(datas[datas.length - 2]);
+      const d2 = new Date(datas[datas.length - 1]);
+      intervalo = Math.round((d2 - d1) / 86400000);
+    }
+    return { ...p, datas: undefined, intervalo, pedidos: p.pedidos };
+  });
   const totalMes = dadosProdutos.reduce((a,b) => a + b.total, 0);
   document.getElementById('label_total_mes').textContent = `Total: ${brl(totalMes)}`;
 
@@ -450,7 +469,7 @@ function setPorPagina(n) {
 function ordenar(campo) {
   if (ordemCampo === campo) ordemAsc = !ordemAsc;
   else { ordemCampo = campo; ordemAsc = campo !== 'total'; }
-  ['codigo','descricao','qtd','total','estoque'].forEach(c => {
+  ['codigo','descricao','qtd','total','estoque','pedidos','intervalo'].forEach(c => {
     document.getElementById('ord_'+c).textContent = '↕';
     document.getElementById('ord_'+c).style.color = '#374151';
   });
@@ -501,6 +520,8 @@ function renderTabela() {
       <td class="px-4 py-2 text-right text-gray-300">${fmtQtd(p.qtd)}</td>
       <td class="px-4 py-2 text-right font-semibold text-white">${brl(p.total)}</td>
       <td class="px-4 py-2 text-right ${p.estoque === null ? 'text-gray-600' : p.estoque <= 0 ? 'text-red-400' : 'text-gray-300'}">${p.estoque === null ? '—' : fmtQtd(p.estoque)}</td>
+      <td class="px-4 py-2 text-right text-gray-300">${p.pedidos}</td>
+      <td class="px-4 py-2 text-right ${p.intervalo === null ? 'text-gray-600' : p.intervalo <= 3 ? 'text-green-400' : p.intervalo <= 7 ? 'text-yellow-400' : 'text-gray-400'}">${p.intervalo === null ? '—' : p.intervalo + 'd'}</td>
     `;
     tbody.appendChild(tr);
   });
