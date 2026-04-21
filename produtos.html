@@ -179,6 +179,9 @@ tailwind.config = {
               <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('total')">
                 Total Vendido <span id="ord_total" class="text-[#FF6600]">↓</span>
               </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('estoque')">
+                Estoque Atual <span id="ord_estoque" class="text-gray-700">↕</span>
+              </th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -275,6 +278,19 @@ async function carregarMes() {
     poff += 1000;
   }
 
+  // Busca estoque atual (soma todas as lojas por produto)
+  const estoqueMap = {};
+  let eoff = 0;
+  while (true) {
+    const { data: estoques } = await sb.from('estoque').select('id_produto, estoque').range(eoff, eoff + 999);
+    if (!estoques?.length) break;
+    estoques.forEach(e => {
+      estoqueMap[e.id_produto] = (estoqueMap[e.id_produto] || 0) + parseFloat(e.estoque || 0);
+    });
+    if (estoques.length < 1000) break;
+    eoff += 1000;
+  }
+
   // Agrega por produto
   const porProduto = {};
   allData.forEach(r => {
@@ -284,6 +300,8 @@ async function carregarMes() {
         codigo:    r.codigo || '',
         descricao: r.descricao || '',
         grupo:     grupoMap[r.id_produto] || '—',
+        estoque:   estoqueMap[r.id_produto] ?? null,
+        id_produto: r.id_produto,
         qtd:       0,
         total:     0,
       };
@@ -432,7 +450,7 @@ function setPorPagina(n) {
 function ordenar(campo) {
   if (ordemCampo === campo) ordemAsc = !ordemAsc;
   else { ordemCampo = campo; ordemAsc = campo !== 'total'; }
-  ['codigo','descricao','qtd','total'].forEach(c => {
+  ['codigo','descricao','qtd','total','estoque'].forEach(c => {
     document.getElementById('ord_'+c).textContent = '↕';
     document.getElementById('ord_'+c).style.color = '#374151';
   });
@@ -482,6 +500,7 @@ function renderTabela() {
       <td class="px-4 py-2 text-gray-500 text-[11px]">${p.grupo}</td>
       <td class="px-4 py-2 text-right text-gray-300">${fmtQtd(p.qtd)}</td>
       <td class="px-4 py-2 text-right font-semibold text-white">${brl(p.total)}</td>
+      <td class="px-4 py-2 text-right ${p.estoque === null ? 'text-gray-600' : p.estoque <= 0 ? 'text-red-400' : 'text-gray-300'}">${p.estoque === null ? '—' : fmtQtd(p.estoque)}</td>
     `;
     tbody.appendChild(tr);
   });
