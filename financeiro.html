@@ -168,6 +168,19 @@ tailwind.config = {
           <tbody id="tbody"></tbody>
           <tfoot id="tfoot" class="border-t border-white/10"></tfoot>
         </table>
+        <!-- Paginação plano -->
+        <div class="flex items-center justify-between px-6 py-3 border-t border-white/5">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-gray-600 uppercase tracking-widest">Linhas:</span>
+            <div class="flex items-center gap-1 bg-surface-container border border-white/10 rounded-lg p-1">
+              <button onclick="setPlPagina(10)" id="plpp_10" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">10</button>
+              <button onclick="setPlPagina(20)" id="plpp_20" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">20</button>
+              <button onclick="setPlPagina(30)" id="plpp_30" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">30</button>
+            </div>
+            <span id="label_plpagina" class="text-xs text-gray-600"></span>
+          </div>
+          <div class="flex items-center gap-1" id="plpaginacao_btns"></div>
+        </div>
       </div>
     </div>
 
@@ -239,6 +252,8 @@ let dadosPlanos = [];
 let dadosVendedores = [];
 let ordemCampo = 'total';
 let ordemAsc   = false;
+let plPorPagina   = 20;
+let plPaginaAtual = 1;
 let ordemVendCampo = 'total';
 let ordemVendAsc   = false;
 
@@ -437,12 +452,20 @@ function renderTabela() {
     return ordemAsc ? va - vb : vb - va;
   });
 
+  const total    = dados.length;
+  const nPaginas = Math.max(1, Math.ceil(total / plPorPagina));
+  if (plPaginaAtual > nPaginas) plPaginaAtual = nPaginas;
+  const inicio   = (plPaginaAtual - 1) * plPorPagina;
+  const pagina   = dados.slice(inicio, inicio + plPorPagina);
+
   document.getElementById('tabela_status').classList.add('hidden');
   document.getElementById('tabela_wrap').classList.remove('hidden');
+  document.getElementById('label_plpagina').textContent =
+    `${inicio+1}–${Math.min(inicio+plPorPagina,total)} de ${total}`;
 
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
-  dados.forEach((p, i) => {
+  pagina.forEach((p, i) => {
     const tr = document.createElement('tr');
     tr.className = (i%2===0 ? 'bg-surface-container-low/20' : '') +
       ' border-b border-white/5 hover:bg-surface-container transition-colors';
@@ -463,11 +486,10 @@ function renderTabela() {
     tbody.appendChild(tr);
   });
 
-  // Totalizador
+  // Totalizador sempre com todos os dados
   const totalFat = dados.reduce((a,b) => a+b.total, 0);
   const totalQtd = dados.reduce((a,b) => a+b.qtd,   0);
-  const tfoot = document.getElementById('tfoot');
-  tfoot.innerHTML = `
+  document.getElementById('tfoot').innerHTML = `
     <tr class="bg-surface-container-high">
       <td class="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Total</td>
       <td class="px-4 py-3 text-right font-bold text-white">${totalQtd.toLocaleString('pt-BR')}</td>
@@ -476,6 +498,40 @@ function renderTabela() {
       <td class="px-4 py-3 text-right font-bold text-gray-300">${brl(totalQtd > 0 ? totalFat/totalQtd : 0)}</td>
     </tr>
   `;
+
+  renderPaginacaoBtns('plpaginacao_btns', plPaginaAtual, nPaginas, pg => { plPaginaAtual = pg; renderTabela(); });
+}
+
+function setPlPagina(n) {
+  plPorPagina   = n;
+  plPaginaAtual = 1;
+  ['10','20','30'].forEach(v => {
+    const btn = document.getElementById('plpp_'+v);
+    btn.className = parseInt(v) === n
+      ? 'px-2.5 py-1 rounded text-[10px] font-bold bg-[#FF6600] text-white transition-colors'
+      : 'px-2.5 py-1 rounded text-[10px] font-bold text-gray-500 hover:text-white transition-colors';
+  });
+  renderTabela();
+}
+
+function renderPaginacaoBtns(containerId, pagAtual, nPaginas, onPage) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const cls = (ativo) => ativo
+    ? 'w-7 h-7 rounded text-[11px] font-bold bg-[#FF6600] text-white'
+    : 'w-7 h-7 rounded text-[11px] text-gray-500 hover:text-white hover:bg-surface-container transition-colors';
+  const btn = (label, cb, ativo=false, disabled=false) => {
+    const b = document.createElement('button');
+    b.textContent = label; b.className = cls(ativo);
+    if (disabled) { b.disabled = true; b.className += ' opacity-30 cursor-not-allowed'; }
+    else b.onclick = cb;
+    container.appendChild(b);
+  };
+  btn('‹', () => onPage(pagAtual-1), false, pagAtual===1);
+  let s = Math.max(1, pagAtual-2), e = Math.min(nPaginas, s+4);
+  if (e-s < 4) s = Math.max(1, e-4);
+  for (let p = s; p <= e; p++) btn(String(p), () => onPage(p), p===pagAtual);
+  btn('›', () => onPage(pagAtual+1), false, pagAtual===nPaginas);
 }
 
 function renderGraficoVend() {
@@ -594,6 +650,7 @@ function toggleSidebar() {
   o.classList.toggle('hidden', open);
 }
 
+setPlPagina(20);
 carregarMes();
 </script>
 </body>
