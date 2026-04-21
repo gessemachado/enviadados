@@ -232,15 +232,15 @@ async function carregarMes() {
     offset += PAGE;
   }
 
-  // Busca info de grupo dos produtos presentes
-  const idsUnicos = [...new Set(allData.map(r => r.id_produto).filter(Boolean))];
-  const grupoMap  = {};
-  if (idsUnicos.length) {
-    const { data: prods } = await sb
-      .from('produtos')
-      .select('id_produto, grupo')
-      .in('id_produto', idsUnicos.slice(0, 400)); // limite seguro
-    (prods||[]).forEach(p => { grupoMap[p.id_produto] = p.grupo || 'Sem grupo'; });
+  // Busca grupos de todos os produtos (paginado)
+  const grupoMap = {};
+  let poff = 0;
+  while (true) {
+    const { data: prods } = await sb.from('produtos').select('id_produto, grupo').range(poff, poff + 999);
+    if (!prods?.length) break;
+    prods.forEach(p => { grupoMap[p.id_produto] = p.grupo || ''; });
+    if (prods.length < 1000) break;
+    poff += 1000;
   }
 
   // Agrega por produto
