@@ -255,14 +255,18 @@ async function carregarMes() {
   const strInicio = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
   const strFim    = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoAtual, mesAtual+1, 0).getDate()}`;
 
-  // Busca paginada de saidas
+  // Início do mês anterior (para calcular intervalo entre últimas vendas)
+  const dtMesAnt  = new Date(anoAtual, mesAtual - 1, 1);
+  const strInicioAnt = `${dtMesAnt.getFullYear()}-${String(dtMesAnt.getMonth()+1).padStart(2,'0')}-01`;
+
+  // Busca paginada de saidas (mês anterior + mês atual para ter datas suficientes)
   const PAGE = 1000;
   let allData = [], offset = 0;
   while (true) {
     const { data: page, error } = await sb
       .from('saidas')
       .select('id_produto, codigo, descricao, quantidade_vendida, sub_total, data_venda')
-      .gte('data_venda', strInicio)
+      .gte('data_venda', strInicioAnt)
       .lte('data_venda', strFim)
       .eq('operacao', 'V')
       .gt('quantidade_vendida', 0)
@@ -272,6 +276,9 @@ async function carregarMes() {
     if (page.length < PAGE) break;
     offset += PAGE;
   }
+
+  // Separa dados do mês atual (para totais) dos dados completos (para intervalo)
+  const allDataMes = allData.filter(r => r.data_venda >= strInicio);
 
   // Busca grupos de todos os produtos (paginado)
   const grupoMap = {};
@@ -297,9 +304,17 @@ async function carregarMes() {
     eoff += 1000;
   }
 
-  // Agrega por produto
-  const porProduto = {};
+  // Coleta todas as datas de venda por produto (2 meses)
+  const datasMap = {};
   allData.forEach(r => {
+    if (!r.id_produto || !r.data_venda) return;
+    if (!datasMap[r.id_produto]) datasMap[r.id_produto] = new Set();
+    datasMap[r.id_produto].add(r.data_venda);
+  });
+
+  // Agrega por produto (totais apenas do mês atual)
+  const porProduto = {};
+  allDataMes.forEach(r => {
     const key = r.codigo || r.id_produto;
     if (!porProduto[key]) {
       porProduto[key] = {
@@ -311,24 +326,22 @@ async function carregarMes() {
         qtd:       0,
         total:     0,
         pedidos:   0,
-        datas:     new Set(),
       };
     }
     porProduto[key].qtd     += parseFloat(r.quantidade_vendida || 0);
     porProduto[key].total   += parseFloat(r.sub_total || 0);
     porProduto[key].pedidos += 1;
-    if (r.data_venda) porProduto[key].datas.add(r.data_venda);
   });
 
   dadosProdutos = Object.values(porProduto).map(p => {
-    const datas = [...p.datas].sort();
+    const datas = [...(datasMap[p.id_produto] || [])].sort();
     let intervalo = null;
     if (datas.length >= 2) {
       const d1 = new Date(datas[datas.length - 2]);
       const d2 = new Date(datas[datas.length - 1]);
       intervalo = Math.round((d2 - d1) / 86400000);
     }
-    return { ...p, datas: undefined, intervalo, pedidos: p.pedidos };
+    return { ...p, intervalo };
   });
   const totalMes = dadosProdutos.reduce((a,b) => a + b.total, 0);
   document.getElementById('label_total_mes').textContent = `Total: ${brl(totalMes)}`;
