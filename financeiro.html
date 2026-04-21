@@ -329,7 +329,7 @@ async function carregarMes() {
   // Busca nomes dos vendedores
   const vendMap = {};
   const { data: vends } = await sb.from('vendedores').select('id_vendedor, apelido, nome');
-  (vends || []).forEach(v => { vendMap[v.id_vendedor] = v.apelido || v.nome || `Vendedor ${v.id_vendedor}`; });
+  (vends || []).forEach(v => { vendMap[v.id_vendedor] = v.nome || `Vendedor ${v.id_vendedor}`; });
 
   // Agrega por vendedor
   const porVend = {};
