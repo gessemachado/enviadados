@@ -6,7 +6,6 @@
 <title>Obsidian — Produtos</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script>
@@ -102,17 +101,29 @@ tailwind.config = {
   <!-- Conteúdo rolável -->
   <div class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
 
-    <!-- Gráfico de barras por grupo -->
-    <div class="bg-surface-container-low rounded-xl border border-white/5 p-6">
-      <div class="flex items-center justify-between mb-5">
+    <!-- Tabela por grupo -->
+    <div class="bg-surface-container-low rounded-xl border border-white/5 overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
         <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Vendas por Grupo</h3>
         <span id="label_total_mes" class="text-xs text-gray-500"></span>
       </div>
-      <div id="chart_status" class="flex items-center justify-center h-48 text-gray-700 text-sm">
-        <span class="material-symbols-outlined text-3xl mr-2">bar_chart</span> Carregando...
+      <div id="chart_status" class="flex items-center justify-center h-20 text-gray-700 text-sm gap-2">
+        <span class="material-symbols-outlined text-2xl">bar_chart</span> Carregando...
       </div>
-      <div id="chart_wrap" class="hidden" style="height:280px;">
-        <canvas id="chart_grupos"></canvas>
+      <div id="chart_wrap" class="hidden overflow-x-auto">
+        <table class="w-full text-xs border-collapse">
+          <thead class="bg-surface-container-high">
+            <tr>
+              <th class="px-6 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer hover:text-white" onclick="ordenarGrupo('grupo')">Grupo <span id="gord_grupo" class="text-gray-700">↕</span></th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer hover:text-white" onclick="ordenarGrupo('qtd')">Qtd Vendas <span id="gord_qtd" class="text-gray-700">↕</span></th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer hover:text-white" onclick="ordenarGrupo('total')">Total Faturado <span id="gord_total" class="text-[#FF6600]">↓</span></th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer hover:text-white" onclick="ordenarGrupo('pct')">% Total <span id="gord_pct" class="text-gray-700">↕</span></th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 cursor-pointer hover:text-white" onclick="ordenarGrupo('ticket')">Ticket Médio <span id="gord_ticket" class="text-gray-700">↕</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody_grupos"></tbody>
+          <tfoot id="tfoot_grupos" class="border-t border-white/10"></tfoot>
+        </table>
       </div>
     </div>
 
@@ -185,10 +196,12 @@ const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
 
 let anoAtual = new Date().getFullYear();
 let mesAtual = new Date().getMonth();
-let chartInstance = null;
 let dadosProdutos = [];
+let dadosGrupos = [];
 let ordemCampo = 'total';
 let ordemAsc   = false;
+let ordemGrupoCampo = 'total';
+let ordemGrupoAsc   = false;
 let porPagina  = 20;
 let paginaAtual = 1;
 
@@ -264,71 +277,84 @@ async function carregarMes() {
   const totalMes = dadosProdutos.reduce((a,b) => a + b.total, 0);
   document.getElementById('label_total_mes').textContent = `Total: ${brl(totalMes)}`;
 
-  // Agrega por grupo para o gráfico
+  // Agrega por grupo
   const porGrupo = {};
   dadosProdutos.forEach(p => {
-    porGrupo[p.grupo] = (porGrupo[p.grupo] || 0) + p.total;
+    const g = p.grupo || '—';
+    if (!porGrupo[g]) porGrupo[g] = { grupo: g, qtd: 0, total: 0 };
+    porGrupo[g].qtd   += p.qtd;
+    porGrupo[g].total += p.total;
   });
+  const totalGeral = totalMes;
+  dadosGrupos = Object.values(porGrupo).map(g => ({
+    ...g,
+    pct:    totalGeral > 0 ? (g.total / totalGeral) * 100 : 0,
+    ticket: g.qtd > 0 ? g.total / g.qtd : 0,
+  }));
 
-  try { renderGrafico(porGrupo); } catch(e) {
-    console.error('Chart.js erro:', e);
-    document.getElementById('chart_status').innerHTML =
-      '<span class="text-gray-600 text-xs">Gráfico indisponível</span>';
-    document.getElementById('chart_status').classList.remove('hidden');
-  }
+  renderTabelaGrupos();
   renderTabela();
-
   sync.classList.remove('animate-spin');
 }
 
-function renderGrafico(porGrupo) {
-  const labels = Object.keys(porGrupo).sort((a,b) => porGrupo[b] - porGrupo[a]);
-  const valores = labels.map(l => porGrupo[l]);
+const GCOLS = ['grupo','qtd','total','pct','ticket'];
+
+function ordenarGrupo(campo) {
+  if (ordemGrupoCampo === campo) ordemGrupoAsc = !ordemGrupoAsc;
+  else { ordemGrupoCampo = campo; ordemGrupoAsc = campo === 'grupo'; }
+  GCOLS.forEach(c => {
+    const el = document.getElementById('gord_'+c);
+    if (el) { el.textContent = '↕'; el.style.color = '#374151'; }
+  });
+  const el = document.getElementById('gord_'+campo);
+  if (el) { el.textContent = ordemGrupoAsc ? '↑' : '↓'; el.style.color = '#FF6600'; }
+  renderTabelaGrupos();
+}
+
+function renderTabelaGrupos() {
+  let dados = [...dadosGrupos].sort((a,b) => {
+    let va = a[ordemGrupoCampo], vb = b[ordemGrupoCampo];
+    if (typeof va === 'string') return ordemGrupoAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return ordemGrupoAsc ? va - vb : vb - va;
+  });
 
   document.getElementById('chart_status').classList.add('hidden');
   document.getElementById('chart_wrap').classList.remove('hidden');
 
-  if (chartInstance) chartInstance.destroy();
-
-  chartInstance = new Chart(document.getElementById('chart_grupos'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        data: valores,
-        backgroundColor: labels.map((_,i) =>
-          i === 0 ? 'rgba(255,102,0,0.85)' : `rgba(255,102,0,${0.55 - i * 0.04 < 0.15 ? 0.15 : 0.55 - i * 0.04})`
-        ),
-        borderColor:     'rgba(255,102,0,0.2)',
-        borderWidth: 1,
-        borderRadius: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => brl(ctx.parsed.y)
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: '#9ca3af', font: { size: 10 } },
-          grid:  { color: 'rgba(255,255,255,0.04)' },
-        },
-        y: {
-          ticks: { color: '#9ca3af', font: { size: 10 },
-            callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k'
-          },
-          grid: { color: 'rgba(255,255,255,0.06)' },
-        }
-      }
-    }
+  const tbody = document.getElementById('tbody_grupos');
+  tbody.innerHTML = '';
+  dados.forEach((g, i) => {
+    const tr = document.createElement('tr');
+    tr.className = (i%2===0 ? 'bg-surface-container-low/20' : '') +
+      ' border-b border-white/5 hover:bg-surface-container transition-colors';
+    tr.innerHTML = `
+      <td class="px-6 py-3 font-semibold text-gray-200">${g.grupo}</td>
+      <td class="px-4 py-3 text-right text-gray-300">${g.qtd.toLocaleString('pt-BR',{maximumFractionDigits:0})}</td>
+      <td class="px-4 py-3 text-right font-bold text-white">${brl(g.total)}</td>
+      <td class="px-4 py-3 text-right">
+        <div class="flex items-center justify-end gap-2">
+          <div class="w-16 bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+            <div class="h-full bg-[#FF6600] rounded-full" style="width:${Math.min(g.pct,100).toFixed(1)}%"></div>
+          </div>
+          <span class="text-gray-300 tabular-nums w-12 text-right">${g.pct.toFixed(1)}%</span>
+        </div>
+      </td>
+      <td class="px-4 py-3 text-right text-gray-400">${brl(g.ticket)}</td>
+    `;
+    tbody.appendChild(tr);
   });
+
+  const tTot = dados.reduce((a,b) => a+b.total, 0);
+  const tQtd = dados.reduce((a,b) => a+b.qtd,   0);
+  document.getElementById('tfoot_grupos').innerHTML = `
+    <tr class="bg-surface-container-high">
+      <td class="px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Total</td>
+      <td class="px-4 py-3 text-right font-bold text-white">${tQtd.toLocaleString('pt-BR',{maximumFractionDigits:0})}</td>
+      <td class="px-4 py-3 text-right font-bold text-[#FF6600]">${brl(tTot)}</td>
+      <td class="px-4 py-3 text-right font-bold text-white">100%</td>
+      <td class="px-4 py-3 text-right font-bold text-gray-300">${brl(tQtd > 0 ? tTot/tQtd : 0)}</td>
+    </tr>
+  `;
 }
 
 function setPorPagina(n) {
