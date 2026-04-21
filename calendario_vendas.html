@@ -170,6 +170,41 @@ tailwind.config = {
       </div>
     </div>
 
+    <!-- Card Meta -->
+    <div class="bg-surface-container-low rounded-lg border border-white/5 p-5 flex-shrink-0">
+      <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+        <div>
+          <p class="text-xs font-label uppercase tracking-widest text-gray-500 mb-1">Meta do Mês</p>
+          <h2 id="kpi_meta_final" class="text-2xl font-black text-white font-['Manrope']">—</h2>
+          <p id="kpi_meta_base_label" class="text-[10px] text-gray-600 mt-0.5"></p>
+        </div>
+        <div class="flex items-end gap-4">
+          <div>
+            <label class="block text-[9px] text-gray-600 uppercase tracking-widest mb-1">IPCA %</label>
+            <input id="inp_ipca" type="number" value="4.25" step="0.25" min="0" max="30" oninput="recalcularMeta()"
+              class="w-20 bg-surface-container border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white text-center focus:outline-none focus:border-[#FF6600]/50"/>
+          </div>
+          <div>
+            <label class="block text-[9px] text-gray-600 uppercase tracking-widest mb-1">Cresc. Real %</label>
+            <input id="inp_cresc" type="number" value="5" step="0.5" min="0" max="100" oninput="recalcularMeta()"
+              class="w-20 bg-surface-container border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white text-center focus:outline-none focus:border-[#FF6600]/50"/>
+          </div>
+        </div>
+      </div>
+      <!-- Breakdown -->
+      <div id="meta_breakdown" class="flex flex-wrap gap-x-6 gap-y-1 mb-4 text-xs text-gray-400"></div>
+      <!-- Barra de progresso -->
+      <div>
+        <div class="flex justify-between text-[10px] text-gray-500 mb-1.5">
+          <span id="meta_realizado_label">Realizado no mês: —</span>
+          <span id="meta_pct_label" class="font-bold">—</span>
+        </div>
+        <div class="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
+          <div id="meta_progress_bar" class="h-full rounded-full transition-all duration-700 bg-[#FF6600]" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Calendário -->
     <div class="flex-1 flex flex-col min-h-0">
       <div class="overflow-x-auto">
@@ -221,6 +256,10 @@ const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
 
 let anoAtual  = new Date().getFullYear();
 let mesAtual  = new Date().getMonth(); // 0-indexed
+let _totalMesAtual  = 0;
+let _baseAnoAnterior = null;
+let _mesMostrando = 0;
+let _anoMostrando = 0;
 const hoje    = new Date();
 const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
 
@@ -298,6 +337,26 @@ async function carregarMes() {
   document.getElementById('kpi_ticket').textContent = brl(ticketMedio);
   document.getElementById('kpi_ticket_sub').textContent =
     `${allData.length.toLocaleString('pt-BR')} transações no mês`;
+
+  // Salva total do mês e busca base do mesmo mês no ano anterior
+  _totalMesAtual = totalMes;
+  _mesMostrando  = mesAtual;
+  _anoMostrando  = anoAtual;
+  const anoBase  = anoAtual - 1;
+  const strInicioBase = `${anoBase}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const strFimBase    = `${anoBase}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoBase, mesAtual+1, 0).getDate()}`;
+  let allDataBase = [], offBase = 0;
+  while (true) {
+    const { data: pg } = await sb.from('saidas')
+      .select('sub_total').gte('data_venda', strInicioBase).lte('data_venda', strFimBase)
+      .eq('operacao', 'V').gt('quantidade_vendida', 0).range(offBase, offBase + PAGE - 1);
+    if (!pg?.length) break;
+    allDataBase = allDataBase.concat(pg);
+    if (pg.length < PAGE) break;
+    offBase += PAGE;
+  }
+  _baseAnoAnterior = allDataBase.reduce((a, r) => a + parseFloat(r.sub_total || 0), 0);
+  recalcularMeta();
 
   // vs media hoje
   if (vendasHoje > 0 && mediaDiaria > 0) {
@@ -466,6 +525,44 @@ function renderCalendario(porDia, porDiaAnt, totalDias) {
 
 // Init
 carregarMes();
+
+function recalcularMeta() {
+  const base   = _baseAnoAnterior;
+  if (base === null) return;
+  const ipca   = parseFloat(document.getElementById('inp_ipca').value)  / 100 || 0;
+  const cresc  = parseFloat(document.getElementById('inp_cresc').value) / 100 || 0;
+  const corrigido   = base * (1 + ipca);
+  const metaFinal   = corrigido * (1 + cresc);
+  const corrInflacao = corrigido - base;
+  const corrCresc    = metaFinal - corrigido;
+  const crescTotal   = base > 0 ? ((metaFinal / base) - 1) * 100 : 0;
+  const mesNome      = MESES_PT[_mesMostrando];
+  const anoBase      = _anoMostrando - 1;
+
+  document.getElementById('kpi_meta_final').textContent = brl(metaFinal);
+  document.getElementById('kpi_meta_base_label').textContent =
+    `Crescimento total: +${crescTotal.toFixed(1)}% sobre ${mesNome.toLowerCase()}/${anoBase}`;
+
+  document.getElementById('meta_breakdown').innerHTML = `
+    <span class="text-gray-500">${brl(base)}</span>
+    <span class="text-gray-600">→ base de ${mesNome.toLowerCase()}/${anoBase}</span>
+    <span class="text-[#FF6600]">+ ${brl(corrInflacao)}</span>
+    <span class="text-gray-600">→ correção inflação (${(ipca*100).toFixed(2)}%)</span>
+    <span class="text-green-400">+ ${brl(corrCresc)}</span>
+    <span class="text-gray-600">→ crescimento real (${(cresc*100).toFixed(1)}%)</span>
+  `;
+
+  const pct = metaFinal > 0 ? Math.min((_totalMesAtual / metaFinal) * 100, 100) : 0;
+  const pctReal = metaFinal > 0 ? ((_totalMesAtual / metaFinal) * 100).toFixed(1) : '0';
+  document.getElementById('meta_realizado_label').textContent =
+    `Realizado no mês: ${brl(_totalMesAtual)}`;
+  document.getElementById('meta_pct_label').textContent = `${pctReal}% da meta`;
+  document.getElementById('meta_pct_label').className =
+    `font-bold text-[10px] ${parseFloat(pctReal) >= 100 ? 'text-green-400' : parseFloat(pctReal) >= 70 ? 'text-yellow-400' : 'text-gray-400'}`;
+  document.getElementById('meta_progress_bar').style.width = `${pct}%`;
+  document.getElementById('meta_progress_bar').className =
+    `h-full rounded-full transition-all duration-700 ${parseFloat(pctReal) >= 100 ? 'bg-green-500' : 'bg-[#FF6600]'}`;
+}
 
 function toggleSidebar() {
   const s = document.getElementById('sidebar');
