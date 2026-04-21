@@ -222,7 +222,7 @@ const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
 let anoAtual  = new Date().getFullYear();
 let mesAtual  = new Date().getMonth(); // 0-indexed
 const hoje    = new Date();
-const hojeStr = hoje.toISOString().split('T')[0];
+const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
 
 function brl(v) {
   return (v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
