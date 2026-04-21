@@ -73,7 +73,7 @@ tailwind.config = {
 <!-- Main -->
 <main class="ml-0 md:ml-72 flex-1 flex flex-col h-screen overflow-hidden">
 
-  <!-- Header com seletor de mês -->
+  <!-- Header -->
   <header class="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 border-b border-white/5 bg-surface-container-lowest shrink-0">
     <div class="flex items-center gap-3">
       <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-400 hover:text-white">
@@ -99,7 +99,7 @@ tailwind.config = {
   </header>
 
   <!-- Conteúdo rolável -->
-  <div class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+  <div class="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
 
     <!-- Tabela por grupo -->
     <div class="bg-surface-container-low rounded-xl border border-white/5 overflow-hidden">
@@ -124,16 +124,33 @@ tailwind.config = {
           <tbody id="tbody_grupos"></tbody>
           <tfoot id="tfoot_grupos" class="border-t border-white/10"></tfoot>
         </table>
+        <!-- Paginação grupos -->
+        <div class="flex items-center justify-between px-6 py-3 border-t border-white/5">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-gray-600 uppercase tracking-widest">Linhas:</span>
+            <div class="flex items-center gap-1 bg-surface-container border border-white/10 rounded-lg p-1">
+              <button onclick="setGppPagina(10)" id="gpp_10" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">10</button>
+              <button onclick="setGppPagina(20)" id="gpp_20" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">20</button>
+              <button onclick="setGppPagina(30)" id="gpp_30" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">30</button>
+            </div>
+            <span id="label_gpagina" class="text-xs text-gray-600"></span>
+          </div>
+          <div class="flex items-center gap-1" id="gpaginacao_btns"></div>
+        </div>
       </div>
     </div>
 
     <!-- Tabela de produtos -->
     <div class="bg-surface-container-low rounded-xl border border-white/5 overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
+      <div class="flex flex-wrap items-center justify-between px-6 py-4 border-b border-white/5 gap-3">
         <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Produtos</h3>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="filtro_grupo" onchange="buscarReset()"
+            class="bg-surface-container border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#FF6600]/50 transition-colors">
+            <option value="">Todos os grupos</option>
+          </select>
           <input id="busca" type="text" placeholder="Buscar produto..." oninput="buscarReset()"
-            class="bg-surface-container border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50 w-48 transition-colors"/>
+            class="bg-surface-container border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50 w-44 transition-colors"/>
           <span id="label_count" class="text-xs text-gray-600"></span>
         </div>
       </div>
@@ -167,7 +184,7 @@ tailwind.config = {
           <tbody id="tbody"></tbody>
         </table>
         </div>
-        <!-- Paginação -->
+        <!-- Paginação produtos -->
         <div class="flex items-center justify-between px-6 py-3 border-t border-white/5">
           <div class="flex items-center gap-2">
             <span class="text-[10px] text-gray-600 uppercase tracking-widest">Linhas:</span>
@@ -202,8 +219,10 @@ let ordemCampo = 'total';
 let ordemAsc   = false;
 let ordemGrupoCampo = 'total';
 let ordemGrupoAsc   = false;
-let porPagina  = 20;
+let porPagina   = 20;
 let paginaAtual = 1;
+let gPorPagina   = 20;
+let gPaginaAtual = 1;
 
 function brl(v) {
   return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -225,7 +244,7 @@ async function carregarMes() {
   sync.classList.add('animate-spin');
 
   const strInicio = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
-  const strFim    = new Date(anoAtual, mesAtual+1, 0).toISOString().split('T')[0];
+  const strFim    = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoAtual, mesAtual+1, 0).getDate()}`;
 
   // Busca paginada de saidas
   const PAGE = 1000;
@@ -262,11 +281,11 @@ async function carregarMes() {
     const key = r.codigo || r.id_produto;
     if (!porProduto[key]) {
       porProduto[key] = {
-        codigo:   r.codigo || '',
+        codigo:    r.codigo || '',
         descricao: r.descricao || '',
-        grupo:    grupoMap[r.id_produto] || '—',
-        qtd:      0,
-        total:    0,
+        grupo:     grupoMap[r.id_produto] || '—',
+        qtd:       0,
+        total:     0,
       };
     }
     porProduto[key].qtd   += parseFloat(r.quantidade_vendida || 0);
@@ -285,18 +304,26 @@ async function carregarMes() {
     porGrupo[g].qtd   += p.qtd;
     porGrupo[g].total += p.total;
   });
-  const totalGeral = totalMes;
   dadosGrupos = Object.values(porGrupo).map(g => ({
     ...g,
-    pct:    totalGeral > 0 ? (g.total / totalGeral) * 100 : 0,
+    pct:    totalMes > 0 ? (g.total / totalMes) * 100 : 0,
     ticket: g.qtd > 0 ? g.total / g.qtd : 0,
   }));
 
+  // Popula select de grupos
+  const sel = document.getElementById('filtro_grupo');
+  const gruposOrdenados = [...dadosGrupos].sort((a,b) => a.grupo.localeCompare(b.grupo));
+  sel.innerHTML = '<option value="">Todos os grupos</option>' +
+    gruposOrdenados.map(g => `<option value="${g.grupo}">${g.grupo}</option>`).join('');
+
+  gPaginaAtual = 1;
+  paginaAtual  = 1;
   renderTabelaGrupos();
   renderTabela();
   sync.classList.remove('animate-spin');
 }
 
+// ── Grupos ───────────────────────────────────────────────
 const GCOLS = ['grupo','qtd','total','pct','ticket'];
 
 function ordenarGrupo(campo) {
@@ -308,6 +335,19 @@ function ordenarGrupo(campo) {
   });
   const el = document.getElementById('gord_'+campo);
   if (el) { el.textContent = ordemGrupoAsc ? '↑' : '↓'; el.style.color = '#FF6600'; }
+  gPaginaAtual = 1;
+  renderTabelaGrupos();
+}
+
+function setGppPagina(n) {
+  gPorPagina   = n;
+  gPaginaAtual = 1;
+  ['10','20','30'].forEach(v => {
+    const btn = document.getElementById('gpp_'+v);
+    btn.className = parseInt(v) === n
+      ? 'px-2.5 py-1 rounded text-[10px] font-bold bg-[#FF6600] text-white transition-colors'
+      : 'px-2.5 py-1 rounded text-[10px] font-bold text-gray-500 hover:text-white transition-colors';
+  });
   renderTabelaGrupos();
 }
 
@@ -318,15 +358,25 @@ function renderTabelaGrupos() {
     return ordemGrupoAsc ? va - vb : vb - va;
   });
 
+  const total    = dados.length;
+  const nPaginas = Math.max(1, Math.ceil(total / gPorPagina));
+  if (gPaginaAtual > nPaginas) gPaginaAtual = nPaginas;
+  const inicio   = (gPaginaAtual - 1) * gPorPagina;
+  const pagina   = dados.slice(inicio, inicio + gPorPagina);
+
   document.getElementById('chart_status').classList.add('hidden');
   document.getElementById('chart_wrap').classList.remove('hidden');
+  document.getElementById('label_gpagina').textContent =
+    `${inicio+1}–${Math.min(inicio+gPorPagina,total)} de ${total}`;
 
   const tbody = document.getElementById('tbody_grupos');
   tbody.innerHTML = '';
-  dados.forEach((g, i) => {
+  pagina.forEach((g, i) => {
     const tr = document.createElement('tr');
     tr.className = (i%2===0 ? 'bg-surface-container-low/20' : '') +
-      ' border-b border-white/5 hover:bg-surface-container transition-colors';
+      ' border-b border-white/5 hover:bg-surface-container transition-colors cursor-pointer';
+    tr.title = 'Clique para filtrar produtos deste grupo';
+    tr.onclick = () => filtrarPorGrupo(g.grupo);
     tr.innerHTML = `
       <td class="px-6 py-3 font-semibold text-gray-200">${g.grupo}</td>
       <td class="px-4 py-3 text-right text-gray-300">${g.qtd.toLocaleString('pt-BR',{maximumFractionDigits:0})}</td>
@@ -355,10 +405,20 @@ function renderTabelaGrupos() {
       <td class="px-4 py-3 text-right font-bold text-gray-300">${brl(tQtd > 0 ? tTot/tQtd : 0)}</td>
     </tr>
   `;
+
+  renderPaginacaoBtns('gpaginacao_btns', gPaginaAtual, nPaginas, pg => { gPaginaAtual = pg; renderTabelaGrupos(); });
+}
+
+// ── Produtos ─────────────────────────────────────────────
+function filtrarPorGrupo(grupo) {
+  document.getElementById('filtro_grupo').value = grupo;
+  paginaAtual = 1;
+  renderTabela();
+  document.getElementById('tabela_wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function setPorPagina(n) {
-  porPagina  = n;
+  porPagina   = n;
   paginaAtual = 1;
   ['10','20','30'].forEach(v => {
     const btn = document.getElementById('pp_'+v);
@@ -385,9 +445,11 @@ function ordenar(campo) {
 function buscarReset() { paginaAtual = 1; renderTabela(); }
 
 function renderTabela() {
-  const busca = document.getElementById('busca').value.toLowerCase();
+  const busca  = document.getElementById('busca').value.toLowerCase();
+  const grupo  = document.getElementById('filtro_grupo').value;
   let dados = dadosProdutos.filter(p =>
-    !busca || p.codigo.toLowerCase().includes(busca) || p.descricao.toLowerCase().includes(busca)
+    (!grupo || p.grupo === grupo) &&
+    (!busca  || p.codigo.toLowerCase().includes(busca) || p.descricao.toLowerCase().includes(busca))
   );
 
   dados.sort((a,b) => {
@@ -396,17 +458,17 @@ function renderTabela() {
     return ordemAsc ? va - vb : vb - va;
   });
 
-  const total   = dados.length;
+  const total    = dados.length;
   const nPaginas = Math.max(1, Math.ceil(total / porPagina));
   if (paginaAtual > nPaginas) paginaAtual = nPaginas;
-  const inicio  = (paginaAtual - 1) * porPagina;
-  const pagina  = dados.slice(inicio, inicio + porPagina);
+  const inicio   = (paginaAtual - 1) * porPagina;
+  const pagina   = dados.slice(inicio, inicio + porPagina);
 
   document.getElementById('tabela_status').classList.add('hidden');
   document.getElementById('tabela_wrap').classList.remove('hidden');
   document.getElementById('label_count').textContent = `${total} produto(s)`;
   document.getElementById('label_pagina').textContent =
-    `${inicio + 1}–${Math.min(inicio + porPagina, total)} de ${total}`;
+    `${inicio+1}–${Math.min(inicio+porPagina,total)} de ${total}`;
 
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
@@ -424,36 +486,35 @@ function renderTabela() {
     tbody.appendChild(tr);
   });
 
-  // Botões de página
-  const container = document.getElementById('paginacao_btns');
+  renderPaginacaoBtns('paginacao_btns', paginaAtual, nPaginas, pg => { paginaAtual = pg; renderTabela(); });
+}
+
+// ── Paginação genérica ────────────────────────────────────
+function renderPaginacaoBtns(containerId, pagAtual, nPaginas, onPage) {
+  const container = document.getElementById(containerId);
   container.innerHTML = '';
-  const btnCls = (ativo) => ativo
+  const cls = (ativo) => ativo
     ? 'w-7 h-7 rounded text-[11px] font-bold bg-[#FF6600] text-white'
     : 'w-7 h-7 rounded text-[11px] text-gray-500 hover:text-white hover:bg-surface-container transition-colors';
 
-  const addBtn = (label, onclick, ativo=false, disabled=false) => {
+  const btn = (label, cb, ativo=false, disabled=false) => {
     const b = document.createElement('button');
     b.textContent = label;
-    b.className = btnCls(ativo);
+    b.className = cls(ativo);
     if (disabled) { b.disabled = true; b.className += ' opacity-30 cursor-not-allowed'; }
-    else b.onclick = onclick;
+    else b.onclick = cb;
     container.appendChild(b);
   };
 
-  addBtn('‹', () => { paginaAtual--; renderTabela(); }, false, paginaAtual === 1);
-
-  // Janela de páginas
-  let inicio2 = Math.max(1, paginaAtual - 2);
-  let fim2    = Math.min(nPaginas, inicio2 + 4);
-  if (fim2 - inicio2 < 4) inicio2 = Math.max(1, fim2 - 4);
-  for (let p = inicio2; p <= fim2; p++) {
-    const pg = p;
-    addBtn(String(pg), () => { paginaAtual = pg; renderTabela(); }, pg === paginaAtual);
-  }
-
-  addBtn('›', () => { paginaAtual++; renderTabela(); }, false, paginaAtual === nPaginas);
+  btn('‹', () => onPage(pagAtual - 1), false, pagAtual === 1);
+  let s = Math.max(1, pagAtual - 2);
+  let e = Math.min(nPaginas, s + 4);
+  if (e - s < 4) s = Math.max(1, e - 4);
+  for (let p = s; p <= e; p++) btn(String(p), () => onPage(p), p === pagAtual);
+  btn('›', () => onPage(pagAtual + 1), false, pagAtual === nPaginas);
 }
 
+setGppPagina(20);
 setPorPagina(20);
 carregarMes();
 
