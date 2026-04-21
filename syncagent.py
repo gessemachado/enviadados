@@ -77,9 +77,15 @@ TABELAS = {
         'query': """SELECT ID_SAIDA, ID_PRODUTO, CODIGO, DESCRICAO,
                     NUMERO_CUPOM, NOTA_FISCAL, DATA_VENDA,
                     QUANTIDADE_VENDIDA, PRECO_VENDA, SUB_TOTAL, DESCONTO,
-                    ID_CLIENTE, ID_VENDEDOR, ID_LOJA, OPERACAO, DATA_MANUTENCAO
+                    ID_CLIENTE, ID_VENDEDOR, ID_LOJA, OPERACAO, ID_PLANO, DATA_MANUTENCAO
                     FROM SAIDAS WHERE DATA_MANUTENCAO >= ? ORDER BY DATA_MANUTENCAO""",
         'delta': 'DATA_MANUTENCAO', 'padrao': '2000-01-01', 'limite_1_ano': True,
+    },
+    'plano_venda': {
+        'query': """SELECT ID_PLANO, DESCRICAO, ID_TIPO, PARCELA, TXA,
+                    ENTRADA, COMISSAO, DESCONTO, TAXA_CARTAO, ATIVO
+                    FROM PLANO_VENDA ORDER BY ID_PLANO""",
+        'delta': None, 'padrao': None,
     },
     'produtos': {
         'query': """SELECT ID_PRODUTO, CODIGO, DESCRICAO, UNIDADE, PRECO, CUSTO_MEDIO,

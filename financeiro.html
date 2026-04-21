@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Obsidian — Produtos</title>
+<title>Obsidian — Financeiro</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -58,10 +58,10 @@ tailwind.config = {
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="calendario_vendas.html">
       <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Sales Ledger</span>
     </a>
-    <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="produtos.html">
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="produtos.html">
       <span class="material-symbols-outlined mr-3">bar_chart</span><span>Produtos</span>
     </a>
-    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="financeiro.html">
+    <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="financeiro.html">
       <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
     </a>
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
@@ -74,15 +74,15 @@ tailwind.config = {
 <!-- Main -->
 <main class="ml-0 md:ml-72 flex-1 flex flex-col h-screen overflow-hidden">
 
-  <!-- Header com seletor de mês -->
+  <!-- Header -->
   <header class="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 border-b border-white/5 bg-surface-container-lowest shrink-0">
     <div class="flex items-center gap-3">
       <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-400 hover:text-white">
         <span class="material-symbols-outlined">menu</span>
       </button>
       <div>
-        <h2 class="text-base md:text-lg font-black text-white font-['Manrope']">Análise de Produtos</h2>
-        <p class="text-xs text-gray-500 mt-0.5 hidden md:block">Vendas por produto e grupo</p>
+        <h2 class="text-base md:text-lg font-black text-white font-['Manrope']">Financeiro</h2>
+        <p class="text-xs text-gray-500 mt-0.5 hidden md:block">Faturamento por plano de venda</p>
       </div>
     </div>
     <div class="flex items-center gap-3">
@@ -100,75 +100,74 @@ tailwind.config = {
   </header>
 
   <!-- Conteúdo rolável -->
-  <div class="flex-1 overflow-y-auto px-8 py-6 space-y-6">
+  <div class="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
 
-    <!-- Gráfico de barras por grupo -->
-    <div class="bg-surface-container-low rounded-xl border border-white/5 p-6">
-      <div class="flex items-center justify-between mb-5">
-        <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Vendas por Grupo</h3>
-        <span id="label_total_mes" class="text-xs text-gray-500"></span>
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-surface-container-low rounded-xl border border-white/5 p-5">
+        <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2">Total Faturado</p>
+        <p id="kpi_total" class="text-xl font-black text-white font-['Manrope']">—</p>
       </div>
-      <div id="chart_status" class="flex items-center justify-center h-48 text-gray-700 text-sm">
-        <span class="material-symbols-outlined text-3xl mr-2">bar_chart</span> Carregando...
+      <div class="bg-surface-container-low rounded-xl border border-white/5 p-5">
+        <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2">Qtd Transações</p>
+        <p id="kpi_qtd" class="text-xl font-black text-white font-['Manrope']">—</p>
       </div>
-      <div id="chart_wrap" class="hidden" style="height:280px;">
-        <canvas id="chart_grupos"></canvas>
+      <div class="bg-surface-container-low rounded-xl border border-white/5 p-5">
+        <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2">Ticket Médio</p>
+        <p id="kpi_ticket" class="text-xl font-black text-white font-['Manrope']">—</p>
+      </div>
+      <div class="bg-surface-container-low rounded-xl border border-white/5 p-5">
+        <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-2">Plano Principal</p>
+        <p id="kpi_plano" class="text-base font-black text-[#FF6600] font-['Manrope'] truncate">—</p>
       </div>
     </div>
 
-    <!-- Tabela de produtos -->
+    <!-- Gráfico de barras por plano -->
+    <div class="bg-surface-container-low rounded-xl border border-white/5 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Faturamento por Plano</h3>
+        <span id="label_planos" class="text-xs text-gray-500"></span>
+      </div>
+      <div id="chart_status" class="flex items-center justify-center h-48 text-gray-700 text-sm gap-2">
+        <span class="material-symbols-outlined text-3xl">payments</span> Carregando...
+      </div>
+      <div id="chart_wrap" class="hidden" style="height:300px;">
+        <canvas id="chart_planos"></canvas>
+      </div>
+    </div>
+
+    <!-- Tabela por plano -->
     <div class="bg-surface-container-low rounded-xl border border-white/5 overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-white/5">
-        <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Produtos</h3>
-        <div class="flex items-center gap-3">
-          <input id="busca" type="text" placeholder="Buscar produto..." oninput="buscarReset()"
-            class="bg-surface-container border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50 w-48 transition-colors"/>
-          <span id="label_count" class="text-xs text-gray-600"></span>
-        </div>
+      <div class="px-6 py-4 border-b border-white/5">
+        <h3 class="text-sm font-bold text-white font-['Manrope'] uppercase tracking-widest">Detalhamento por Plano</h3>
       </div>
-
       <div id="tabela_status" class="flex items-center justify-center h-32 text-gray-700 text-sm gap-2">
-        <span class="material-symbols-outlined text-3xl">inventory_2</span> Carregando...
+        <span class="material-symbols-outlined text-3xl">table_view</span> Carregando...
       </div>
-
-      <div id="tabela_wrap" class="hidden">
-        <div class="overflow-x-auto">
+      <div id="tabela_wrap" class="hidden overflow-x-auto">
         <table class="w-full text-xs border-collapse">
           <thead class="bg-surface-container-high">
             <tr>
-              <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('codigo')">
-                Código <span id="ord_codigo" class="text-gray-700">↕</span>
-              </th>
               <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('descricao')">
-                Descrição <span id="ord_descricao" class="text-gray-700">↕</span>
-              </th>
-              <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high">
-                Grupo
+                Plano <span id="ord_descricao" class="text-gray-700">↕</span>
               </th>
               <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('qtd')">
-                Qtd Vendida <span id="ord_qtd" class="text-gray-700">↕</span>
+                Qtd Vendas <span id="ord_qtd" class="text-gray-700">↕</span>
               </th>
               <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('total')">
-                Total Vendido <span id="ord_total" class="text-[#FF6600]">↓</span>
+                Total Faturado <span id="ord_total" class="text-[#FF6600]">↓</span>
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('pct')">
+                % Total <span id="ord_pct" class="text-gray-700">↕</span>
+              </th>
+              <th class="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-500 bg-surface-container-high cursor-pointer hover:text-white" onclick="ordenar('ticket')">
+                Ticket Médio <span id="ord_ticket" class="text-gray-700">↕</span>
               </th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
+          <tfoot id="tfoot" class="border-t border-white/10"></tfoot>
         </table>
-        </div>
-        <!-- Paginação -->
-        <div class="flex items-center justify-between px-6 py-3 border-t border-white/5">
-          <div class="flex items-center gap-2">
-            <span class="text-[10px] text-gray-600 uppercase tracking-widest">Linhas:</span>
-            <div class="flex items-center gap-1 bg-surface-container border border-white/10 rounded-lg p-1">
-              <button onclick="setPorPagina(10)" id="pp_10" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">10</button>
-              <button onclick="setPorPagina(20)" id="pp_20" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">20</button>
-              <button onclick="setPorPagina(30)" id="pp_30" class="px-2.5 py-1 rounded text-[10px] font-bold transition-colors">30</button>
-            </div>
-            <span id="label_pagina" class="text-xs text-gray-600"></span>
-          </div>
-          <div class="flex items-center gap-1" id="paginacao_btns"></div>
-        </div>
       </div>
     </div>
 
@@ -183,20 +182,15 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-let anoAtual = new Date().getFullYear();
-let mesAtual = new Date().getMonth();
+let anoAtual  = new Date().getFullYear();
+let mesAtual  = new Date().getMonth();
 let chartInstance = null;
-let dadosProdutos = [];
+let dadosPlanos = [];
 let ordemCampo = 'total';
 let ordemAsc   = false;
-let porPagina  = 20;
-let paginaAtual = 1;
 
 function brl(v) {
   return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-}
-function fmtQtd(v) {
-  return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2});
 }
 
 function mudarMes(delta) {
@@ -210,17 +204,21 @@ async function carregarMes() {
   document.getElementById('label_mes').textContent = `${MESES_PT[mesAtual]} de ${anoAtual}`;
   const sync = document.getElementById('icon_sync');
   sync.classList.add('animate-spin');
+  document.getElementById('chart_status').classList.remove('hidden');
+  document.getElementById('chart_wrap').classList.add('hidden');
+  document.getElementById('tabela_status').classList.remove('hidden');
+  document.getElementById('tabela_wrap').classList.add('hidden');
 
   const strInicio = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
-  const strFim    = new Date(anoAtual, mesAtual+1, 0).toISOString().split('T')[0];
+  const strFim    = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoAtual, mesAtual+1, 0).getDate()}`;
 
-  // Busca paginada de saidas
+  // Busca saidas paginada
   const PAGE = 1000;
   let allData = [], offset = 0;
   while (true) {
     const { data: page, error } = await sb
       .from('saidas')
-      .select('id_produto, codigo, descricao, quantidade_vendida, sub_total')
+      .select('id_plano, sub_total, quantidade_vendida')
       .gte('data_venda', strInicio)
       .lte('data_venda', strFim)
       .eq('operacao', 'V')
@@ -232,74 +230,74 @@ async function carregarMes() {
     offset += PAGE;
   }
 
-  // Busca info de grupo dos produtos presentes
-  const idsUnicos = [...new Set(allData.map(r => r.id_produto).filter(Boolean))];
-  const grupoMap  = {};
-  if (idsUnicos.length) {
-    const { data: prods } = await sb
-      .from('produtos')
-      .select('id_produto, grupo')
-      .in('id_produto', idsUnicos.slice(0, 400)); // limite seguro
-    (prods||[]).forEach(p => { grupoMap[p.id_produto] = p.grupo || 'Sem grupo'; });
-  }
+  // Busca descrições dos planos
+  const planoMap = {};
+  const { data: planos } = await sb.from('plano_venda').select('id_plano, descricao');
+  (planos || []).forEach(p => { planoMap[p.id_plano] = p.descricao || `Plano ${p.id_plano}`; });
 
-  // Agrega por produto
-  const porProduto = {};
+  // Agrega por plano
+  const porPlano = {};
   allData.forEach(r => {
-    const key = r.codigo || r.id_produto;
-    if (!porProduto[key]) {
-      porProduto[key] = {
-        codigo:   r.codigo || '',
-        descricao: r.descricao || '',
-        grupo:    grupoMap[r.id_produto] || '—',
-        qtd:      0,
-        total:    0,
+    const id  = r.id_plano ?? 0;
+    const key = id;
+    if (!porPlano[key]) {
+      porPlano[key] = {
+        id_plano:  id,
+        descricao: planoMap[id] || (id === 0 ? 'Sem plano' : `Plano ${id}`),
+        qtd:       0,
+        total:     0,
       };
     }
-    porProduto[key].qtd   += parseFloat(r.quantidade_vendida || 0);
-    porProduto[key].total += parseFloat(r.sub_total || 0);
+    porPlano[key].qtd   += 1;
+    porPlano[key].total += parseFloat(r.sub_total || 0);
   });
 
-  dadosProdutos = Object.values(porProduto);
-  const totalMes = dadosProdutos.reduce((a,b) => a + b.total, 0);
-  document.getElementById('label_total_mes').textContent = `Total: ${brl(totalMes)}`;
+  const totalGeral = Object.values(porPlano).reduce((a, b) => a + b.total, 0);
+  dadosPlanos = Object.values(porPlano).map(p => ({
+    ...p,
+    pct:    totalGeral > 0 ? (p.total / totalGeral) * 100 : 0,
+    ticket: p.qtd > 0 ? p.total / p.qtd : 0,
+  }));
 
-  // Agrega por grupo para o gráfico
-  const porGrupo = {};
-  dadosProdutos.forEach(p => {
-    porGrupo[p.grupo] = (porGrupo[p.grupo] || 0) + p.total;
-  });
+  // KPIs
+  const qtdTotal    = allData.length;
+  const ticketMedio = qtdTotal > 0 ? totalGeral / qtdTotal : 0;
+  const planoPrincipal = dadosPlanos.sort((a,b) => b.total - a.total)[0];
+  document.getElementById('kpi_total').textContent  = brl(totalGeral);
+  document.getElementById('kpi_qtd').textContent    = qtdTotal.toLocaleString('pt-BR');
+  document.getElementById('kpi_ticket').textContent = brl(ticketMedio);
+  document.getElementById('kpi_plano').textContent  = planoPrincipal?.descricao || '—';
+  document.getElementById('label_planos').textContent = `${dadosPlanos.length} planos`;
 
-  try { renderGrafico(porGrupo); } catch(e) {
-    console.error('Chart.js erro:', e);
+  try { renderGrafico(); } catch(e) {
     document.getElementById('chart_status').innerHTML =
       '<span class="text-gray-600 text-xs">Gráfico indisponível</span>';
     document.getElementById('chart_status').classList.remove('hidden');
   }
   renderTabela();
-
   sync.classList.remove('animate-spin');
 }
 
-function renderGrafico(porGrupo) {
-  const labels = Object.keys(porGrupo).sort((a,b) => porGrupo[b] - porGrupo[a]);
-  const valores = labels.map(l => porGrupo[l]);
+function renderGrafico() {
+  const sorted = [...dadosPlanos].sort((a,b) => b.total - a.total);
+  const labels = sorted.map(p => p.descricao);
+  const valores = sorted.map(p => p.total);
 
   document.getElementById('chart_status').classList.add('hidden');
   document.getElementById('chart_wrap').classList.remove('hidden');
 
   if (chartInstance) chartInstance.destroy();
 
-  chartInstance = new Chart(document.getElementById('chart_grupos'), {
+  chartInstance = new Chart(document.getElementById('chart_planos'), {
     type: 'bar',
     data: {
       labels,
       datasets: [{
         data: valores,
         backgroundColor: labels.map((_,i) =>
-          i === 0 ? 'rgba(255,102,0,0.85)' : `rgba(255,102,0,${0.55 - i * 0.04 < 0.15 ? 0.15 : 0.55 - i * 0.04})`
+          i === 0 ? 'rgba(255,102,0,0.9)' : `rgba(255,102,0,${Math.max(0.15, 0.6 - i * 0.05)})`
         ),
-        borderColor:     'rgba(255,102,0,0.2)',
+        borderColor:  'rgba(255,102,0,0.2)',
         borderWidth: 1,
         borderRadius: 6,
       }]
@@ -311,18 +309,23 @@ function renderGrafico(porGrupo) {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => brl(ctx.parsed.y)
+            label: ctx => `${brl(ctx.parsed.y)}`,
+            afterLabel: ctx => {
+              const p = dadosPlanos.find(d => d.descricao === ctx.label);
+              return p ? `${p.qtd.toLocaleString('pt-BR')} transações · ${p.pct.toFixed(1)}%` : '';
+            }
           }
         }
       },
       scales: {
         x: {
-          ticks: { color: '#9ca3af', font: { size: 10 } },
+          ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 30 },
           grid:  { color: 'rgba(255,255,255,0.04)' },
         },
         y: {
-          ticks: { color: '#9ca3af', font: { size: 10 },
-            callback: v => 'R$ ' + (v/1000).toFixed(0) + 'k'
+          ticks: {
+            color: '#9ca3af', font: { size: 10 },
+            callback: v => 'R$ ' + (v >= 1000 ? (v/1000).toFixed(0)+'k' : v)
           },
           grid: { color: 'rgba(255,255,255,0.06)' },
         }
@@ -331,105 +334,68 @@ function renderGrafico(porGrupo) {
   });
 }
 
-function setPorPagina(n) {
-  porPagina  = n;
-  paginaAtual = 1;
-  ['10','20','30'].forEach(v => {
-    const btn = document.getElementById('pp_'+v);
-    btn.className = parseInt(v) === n
-      ? 'px-2.5 py-1 rounded text-[10px] font-bold bg-[#FF6600] text-white transition-colors'
-      : 'px-2.5 py-1 rounded text-[10px] font-bold text-gray-500 hover:text-white transition-colors';
-  });
-  renderTabela();
-}
+const COLUNAS = ['descricao','qtd','total','pct','ticket'];
 
 function ordenar(campo) {
   if (ordemCampo === campo) ordemAsc = !ordemAsc;
-  else { ordemCampo = campo; ordemAsc = campo !== 'total'; }
-  ['codigo','descricao','qtd','total'].forEach(c => {
-    document.getElementById('ord_'+c).textContent = '↕';
-    document.getElementById('ord_'+c).style.color = '#374151';
+  else { ordemCampo = campo; ordemAsc = campo === 'descricao'; }
+  COLUNAS.forEach(c => {
+    const el = document.getElementById('ord_'+c);
+    if (el) { el.textContent = '↕'; el.style.color = '#374151'; }
   });
-  document.getElementById('ord_'+campo).textContent = ordemAsc ? '↑' : '↓';
-  document.getElementById('ord_'+campo).style.color = '#FF6600';
-  paginaAtual = 1;
+  const el = document.getElementById('ord_'+campo);
+  if (el) { el.textContent = ordemAsc ? '↑' : '↓'; el.style.color = '#FF6600'; }
   renderTabela();
 }
 
-function buscarReset() { paginaAtual = 1; renderTabela(); }
-
 function renderTabela() {
-  const busca = document.getElementById('busca').value.toLowerCase();
-  let dados = dadosProdutos.filter(p =>
-    !busca || p.codigo.toLowerCase().includes(busca) || p.descricao.toLowerCase().includes(busca)
-  );
-
+  let dados = [...dadosPlanos];
   dados.sort((a,b) => {
     let va = a[ordemCampo], vb = b[ordemCampo];
     if (typeof va === 'string') return ordemAsc ? va.localeCompare(vb) : vb.localeCompare(va);
     return ordemAsc ? va - vb : vb - va;
   });
 
-  const total   = dados.length;
-  const nPaginas = Math.max(1, Math.ceil(total / porPagina));
-  if (paginaAtual > nPaginas) paginaAtual = nPaginas;
-  const inicio  = (paginaAtual - 1) * porPagina;
-  const pagina  = dados.slice(inicio, inicio + porPagina);
-
   document.getElementById('tabela_status').classList.add('hidden');
   document.getElementById('tabela_wrap').classList.remove('hidden');
-  document.getElementById('label_count').textContent = `${total} produto(s)`;
-  document.getElementById('label_pagina').textContent =
-    `${inicio + 1}–${Math.min(inicio + porPagina, total)} de ${total}`;
 
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
-  pagina.forEach((p, i) => {
+  dados.forEach((p, i) => {
     const tr = document.createElement('tr');
     tr.className = (i%2===0 ? 'bg-surface-container-low/20' : '') +
       ' border-b border-white/5 hover:bg-surface-container transition-colors';
     tr.innerHTML = `
-      <td class="px-4 py-2 font-mono text-gray-400 text-[11px]">${p.codigo}</td>
-      <td class="px-4 py-2 text-gray-200">${p.descricao}</td>
-      <td class="px-4 py-2 text-gray-500 text-[11px]">${p.grupo}</td>
-      <td class="px-4 py-2 text-right text-gray-300">${fmtQtd(p.qtd)}</td>
-      <td class="px-4 py-2 text-right font-semibold text-white">${brl(p.total)}</td>
+      <td class="px-4 py-3 text-gray-200 font-medium">${p.descricao}</td>
+      <td class="px-4 py-3 text-right text-gray-300">${p.qtd.toLocaleString('pt-BR')}</td>
+      <td class="px-4 py-3 text-right font-semibold text-white">${brl(p.total)}</td>
+      <td class="px-4 py-3 text-right">
+        <div class="flex items-center justify-end gap-2">
+          <div class="w-16 bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+            <div class="h-full bg-[#FF6600] rounded-full" style="width:${Math.min(p.pct,100).toFixed(1)}%"></div>
+          </div>
+          <span class="text-gray-300 tabular-nums w-12 text-right">${p.pct.toFixed(1)}%</span>
+        </div>
+      </td>
+      <td class="px-4 py-3 text-right text-gray-400">${brl(p.ticket)}</td>
     `;
     tbody.appendChild(tr);
   });
 
-  // Botões de página
-  const container = document.getElementById('paginacao_btns');
-  container.innerHTML = '';
-  const btnCls = (ativo) => ativo
-    ? 'w-7 h-7 rounded text-[11px] font-bold bg-[#FF6600] text-white'
-    : 'w-7 h-7 rounded text-[11px] text-gray-500 hover:text-white hover:bg-surface-container transition-colors';
-
-  const addBtn = (label, onclick, ativo=false, disabled=false) => {
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.className = btnCls(ativo);
-    if (disabled) { b.disabled = true; b.className += ' opacity-30 cursor-not-allowed'; }
-    else b.onclick = onclick;
-    container.appendChild(b);
-  };
-
-  addBtn('‹', () => { paginaAtual--; renderTabela(); }, false, paginaAtual === 1);
-
-  // Janela de páginas
-  let inicio2 = Math.max(1, paginaAtual - 2);
-  let fim2    = Math.min(nPaginas, inicio2 + 4);
-  if (fim2 - inicio2 < 4) inicio2 = Math.max(1, fim2 - 4);
-  for (let p = inicio2; p <= fim2; p++) {
-    const pg = p;
-    addBtn(String(pg), () => { paginaAtual = pg; renderTabela(); }, pg === paginaAtual);
-  }
-
-  addBtn('›', () => { paginaAtual++; renderTabela(); }, false, paginaAtual === nPaginas);
+  // Totalizador
+  const totalFat = dados.reduce((a,b) => a+b.total, 0);
+  const totalQtd = dados.reduce((a,b) => a+b.qtd,   0);
+  const tfoot = document.getElementById('tfoot');
+  tfoot.innerHTML = `
+    <tr class="bg-surface-container-high">
+      <td class="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">Total</td>
+      <td class="px-4 py-3 text-right font-bold text-white">${totalQtd.toLocaleString('pt-BR')}</td>
+      <td class="px-4 py-3 text-right font-bold text-[#FF6600]">${brl(totalFat)}</td>
+      <td class="px-4 py-3 text-right font-bold text-white">100%</td>
+      <td class="px-4 py-3 text-right font-bold text-gray-300">${brl(totalQtd > 0 ? totalFat/totalQtd : 0)}</td>
+    </tr>
+  `;
 }
-
-setPorPagina(20);
-carregarMes();
 
 function toggleSidebar() {
   const s = document.getElementById('sidebar');
@@ -438,6 +404,8 @@ function toggleSidebar() {
   s.classList.toggle('-translate-x-full', open);
   o.classList.toggle('hidden', open);
 }
+
+carregarMes();
 </script>
 </body>
 </html>
