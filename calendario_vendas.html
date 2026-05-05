@@ -563,8 +563,9 @@ function renderCalendario(porDia, porDiaAnt, totalDias) {
 }
 
 function logout() {
-  localStorage.removeItem('obs_session');
-  window.location.href = 'login.html';
+  localStorage.removeItem('obs_token');
+  localStorage.removeItem('obs_user');
+  window.location.replace('/login.html');
 }
 
 // Init
