@@ -241,7 +241,12 @@
       </div>
       <div>
         <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Nova senha</label>
-        <input id="eu_senha" type="password" placeholder="Deixe em branco para não alterar" class="w-full bg-[#111110] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
+        <div class="relative">
+          <input id="eu_senha" type="password" placeholder="Deixe em branco para não alterar" class="w-full bg-[#111110] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50 pr-9"/>
+          <button type="button" onclick="toggleSenhaVer()" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors">
+            <span class="material-symbols-outlined text-base" id="ico_eu_senha">visibility_off</span>
+          </button>
+        </div>
       </div>
       <div>
         <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Loja</label>
@@ -521,11 +526,21 @@ async function criarUsuario() {
 // ── Editar Usuário ─────────────────────────────────────────────────────────────
 let editandoUsuarioId = null;
 
+function toggleSenhaVer() {
+  const inp = document.getElementById('eu_senha');
+  const ico = document.getElementById('ico_eu_senha');
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  ico.textContent = show ? 'visibility' : 'visibility_off';
+}
+
 function abrirUsuario(u) {
   editandoUsuarioId = u.id_usuario;
   document.getElementById('eu_nome').value  = u.nome;
   document.getElementById('eu_email').value = u.email;
   document.getElementById('eu_senha').value = '';
+  document.getElementById('eu_senha').type  = 'password';
+  document.getElementById('ico_eu_senha').textContent = 'visibility_off';
   document.getElementById('eu_loja').value  = u.id_loja || '';
   document.getElementById('eu_admin').checked = !!u.admin;
   document.getElementById('eu_erro').classList.add('hidden');
