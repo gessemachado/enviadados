@@ -26,9 +26,9 @@
   </div>
   <div class="flex items-center gap-4">
     <span id="nome_usuario" class="text-gray-500 text-xs"></span>
-    <a href="/login.html" onclick="localStorage.removeItem('obs_token');localStorage.removeItem('obs_user');" class="text-gray-500 hover:text-white transition-colors flex items-center gap-1 text-xs cursor-pointer">
+    <button type="button" onclick="doLogout()" class="text-gray-500 hover:text-white transition-colors flex items-center gap-1 text-xs">
       <span class="material-symbols-outlined text-base">logout</span> Sair
-    </a>
+    </button>
   </div>
 </header>
 
@@ -206,6 +206,7 @@ try {
 } catch(e) { if (!e.message) window.location.replace('/login.html'); }
 
 function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); window.location.replace('/login.html'); }
+function doLogout() { try { localStorage.clear(); } catch(e){} window.location.href = '/login.html'; }
 
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(url, opts = {}) {
