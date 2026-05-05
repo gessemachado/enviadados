@@ -26,9 +26,9 @@
   </div>
   <div class="flex items-center gap-4">
     <span id="nome_usuario" class="text-gray-500 text-xs"></span>
-    <button type="button" onclick="logout()" class="text-gray-500 hover:text-white transition-colors flex items-center gap-1 text-xs">
+    <a href="/login.html" onclick="localStorage.removeItem('obs_token');localStorage.removeItem('obs_user');" class="text-gray-500 hover:text-white transition-colors flex items-center gap-1 text-xs cursor-pointer">
       <span class="material-symbols-outlined text-base">logout</span> Sair
-    </button>
+    </a>
   </div>
 </header>
 
