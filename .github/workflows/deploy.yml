@@ -14,5 +14,5 @@ jobs:
           host: 108.174.148.133
           port: 22022
           username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
           script: bash /opt/deploy-enviadados.sh
