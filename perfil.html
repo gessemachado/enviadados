@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Obsidian — Perfil</title>
+<script src="auth.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-container-highest": "#353534",
+        "surface-container-high":    "#2a2a2a",
+        "surface-container":         "#201f1f",
+        "surface-container-low":     "#1c1b1b",
+        "surface-container-lowest":  "#0e0e0e",
+        "surface":                   "#131313",
+        "on-surface":                "#e5e2e1",
+        "primary-container":         "#ff6600",
+        "on-primary-container":      "#561d00",
+      },
+      fontFamily: { headline: ["Manrope"], body: ["Inter"] }
+    }
+  }
+}
+</script>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
+    vertical-align: middle;
+  }
+  body { font-family:'Inter',sans-serif; }
+  h1,h2,h3 { font-family:'Manrope',sans-serif; }
+</style>
+</head>
+<body class="bg-surface text-on-surface antialiased flex">
+
+<!-- Sidebar -->
+<div id="sidebar_overlay" onclick="toggleSidebar()" class="hidden fixed inset-0 bg-black/60 z-30 md:hidden"></div>
+<aside id="sidebar" class="flex flex-col border-r border-white/5 bg-[#0e0e0e] h-screen w-72 fixed left-0 top-0 z-40 -translate-x-full md:translate-x-0 transition-transform duration-300 font-['Manrope'] uppercase tracking-widest text-[10px]">
+  <div class="p-8 flex items-center gap-3">
+    <div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center">
+      <span class="material-symbols-outlined text-white" style="font-variation-settings:'FILL' 1;">grid_view</span>
+    </div>
+    <div>
+      <h1 class="text-[#FF6600] font-black text-sm">Obsidian</h1>
+      <p class="text-gray-500 text-[9px] tracking-widest">Analytical Suite</p>
+    </div>
+  </div>
+  <nav class="flex-1 px-4">
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="calendario_vendas.html">
+      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Diário de Operações</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="produtos.html">
+      <span class="material-symbols-outlined mr-3">bar_chart</span><span>Produtos</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="financeiro.html">
+      <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
+      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Projeção de Compras</span>
+    </a>
+    <a id="link_admin" class="hidden items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="admin.html">
+      <span class="material-symbols-outlined mr-3">admin_panel_settings</span><span>Admin</span>
+    </a>
+    <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="perfil.html">
+      <span class="material-symbols-outlined mr-3">manage_accounts</span><span>Meu Perfil</span>
+    </a>
+  </nav>
+  <div id="loja_sel_wrap" class="hidden px-4 pb-3">
+    <p class="text-[9px] font-semibold text-gray-600 uppercase tracking-widest mb-1.5 px-1">Loja</p>
+    <select id="sel_loja" onchange="filtrarLoja(this.value)"
+      class="w-full bg-[#111110] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF6600]/50">
+      <option value="">— Todas as lojas —</option>
+    </select>
+  </div>
+  <div class="p-4 border-t border-white/5">
+    <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-xs">
+      <span class="material-symbols-outlined text-base">logout</span>Sair
+    </button>
+  </div>
+</aside>
+<script>try{const u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(u.admin)document.getElementById('link_admin').classList.replace('hidden','flex');}catch(e){}</script>
+
+<!-- Main -->
+<main class="ml-0 md:ml-72 flex-1 flex flex-col h-screen overflow-hidden">
+
+  <!-- Header -->
+  <header class="flex items-center px-4 md:px-8 py-4 md:py-5 border-b border-white/5 bg-surface-container-lowest shrink-0 gap-3">
+    <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-400 hover:text-white">
+      <span class="material-symbols-outlined">menu</span>
+    </button>
+    <div>
+      <h2 class="text-base md:text-lg font-black text-white font-['Manrope']">Meu Perfil</h2>
+      <p class="text-xs text-gray-500 mt-0.5 hidden md:block">Informações da conta e segurança</p>
+    </div>
+  </header>
+
+  <!-- Conteúdo -->
+  <div class="flex-1 overflow-y-auto px-4 md:px-8 py-6">
+    <div class="max-w-lg space-y-6">
+
+      <!-- Card info do usuário -->
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl p-6">
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-14 h-14 rounded-full bg-gradient-to-br from-[#FF6600] to-[#561d00] flex items-center justify-center text-white text-2xl font-black font-['Manrope']" id="avatar_inicial">?</div>
+          <div>
+            <p class="text-base font-bold text-white font-['Manrope']" id="info_nome">—</p>
+            <p class="text-xs text-gray-400 mt-0.5" id="info_email">—</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-surface-container rounded-xl p-3">
+            <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Loja</p>
+            <p class="text-sm font-bold text-white font-['Manrope']" id="info_loja">—</p>
+          </div>
+          <div class="bg-surface-container rounded-xl p-3">
+            <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Perfil</p>
+            <p class="text-sm font-bold text-white font-['Manrope']" id="info_perfil">—</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card troca de senha -->
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl p-6">
+        <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest mb-5">Alterar Senha</h3>
+
+        <div id="msg_erro" class="hidden mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400"></div>
+        <div id="msg_ok" class="hidden mb-4 px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-xs text-green-400">Senha alterada com sucesso!</div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Senha Atual</label>
+            <div class="relative">
+              <input id="senha_atual" type="password" placeholder="••••••••"
+                class="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50 pr-10"/>
+              <button type="button" onclick="toggleVer('senha_atual')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                <span class="material-symbols-outlined text-base" id="ico_senha_atual">visibility_off</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Nova Senha</label>
+            <div class="relative">
+              <input id="nova_senha" type="password" placeholder="Mínimo 6 caracteres"
+                class="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50 pr-10"/>
+              <button type="button" onclick="toggleVer('nova_senha')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                <span class="material-symbols-outlined text-base" id="ico_nova_senha">visibility_off</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Confirmar Nova Senha</label>
+            <div class="relative">
+              <input id="confirmar" type="password" placeholder="Repita a nova senha"
+                class="w-full bg-surface-container border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50 pr-10"/>
+              <button type="button" onclick="toggleVer('confirmar')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                <span class="material-symbols-outlined text-base" id="ico_confirmar">visibility_off</span>
+              </button>
+            </div>
+          </div>
+          <button id="btn_salvar" onclick="salvarSenha()"
+            class="w-full flex items-center justify-center gap-2 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white font-bold text-sm py-3 rounded-xl hover:opacity-90 transition-opacity font-['Manrope']">
+            <span class="material-symbols-outlined text-base">lock_reset</span>
+            Alterar Senha
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+function toggleSidebar() {
+  const s = document.getElementById('sidebar');
+  const o = document.getElementById('sidebar_overlay');
+  const open = s.classList.contains('-translate-x-full');
+  s.classList.toggle('-translate-x-full', !open);
+  o.classList.toggle('hidden', !open);
+}
+
+function logout() {
+  localStorage.removeItem('obs_token');
+  localStorage.removeItem('obs_user');
+  window.location.replace('/login.html');
+}
+
+function filtrarLoja(v) {
+  if (v) sessionStorage.setItem('obs_tenant_filter', v);
+  else sessionStorage.removeItem('obs_tenant_filter');
+  location.reload();
+}
+async function initLojaSelector() {
+  const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
+  if (!u.admin) return;
+  document.getElementById('loja_sel_wrap').classList.remove('hidden');
+  try {
+    const lojas = await apiFetch('/api/lojas');
+    const sel = document.getElementById('sel_loja');
+    lojas.forEach(l => { const o = new Option(l.nome, l.id_tenant || ''); sel.appendChild(o); });
+    const saved = sessionStorage.getItem('obs_tenant_filter');
+    if (saved) sel.value = saved;
+  } catch(e) {}
+}
+
+async function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('obs_token');
+  const tenant = sessionStorage.getItem('obs_tenant_filter');
+  if (tenant) url += (url.includes('?') ? '&' : '?') + 'tenant_filter=' + tenant;
+  const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
+  if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function toggleVer(id) {
+  const inp = document.getElementById(id);
+  const ico = document.getElementById('ico_' + id);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  ico.textContent = show ? 'visibility' : 'visibility_off';
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById('msg_erro');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  document.getElementById('msg_ok').classList.add('hidden');
+}
+
+function mostrarOk() {
+  document.getElementById('msg_ok').classList.remove('hidden');
+  document.getElementById('msg_erro').classList.add('hidden');
+  document.getElementById('senha_atual').value = '';
+  document.getElementById('nova_senha').value = '';
+  document.getElementById('confirmar').value = '';
+}
+
+async function salvarSenha() {
+  const senhaAtual = document.getElementById('senha_atual').value.trim();
+  const novaSenha  = document.getElementById('nova_senha').value;
+  const confirmar  = document.getElementById('confirmar').value;
+
+  document.getElementById('msg_erro').classList.add('hidden');
+  document.getElementById('msg_ok').classList.add('hidden');
+
+  if (!senhaAtual || !novaSenha || !confirmar) { mostrarErro('Preencha todos os campos.'); return; }
+  if (novaSenha !== confirmar) { mostrarErro('Nova senha e confirmação não coincidem.'); return; }
+  if (novaSenha.length < 6) { mostrarErro('A nova senha deve ter pelo menos 6 caracteres.'); return; }
+
+  const btn = document.getElementById('btn_salvar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-symbols-outlined text-base animate-spin">sync</span> Salvando...';
+
+  try {
+    await apiFetch('/api/perfil/senha', {
+      method: 'PATCH',
+      body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha, confirmar }),
+    });
+    mostrarOk();
+  } catch(e) {
+    let msg = e.message || 'Erro ao alterar senha.';
+    try { msg = JSON.parse(msg).error || msg; } catch(_) {}
+    mostrarErro(msg);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined text-base">lock_reset</span> Alterar Senha';
+  }
+}
+
+// Preenche informações do usuário
+const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
+if (u.nome) {
+  document.getElementById('info_nome').textContent = u.nome;
+  document.getElementById('avatar_inicial').textContent = u.nome.charAt(0).toUpperCase();
+}
+if (u.email) document.getElementById('info_email').textContent = u.email;
+document.getElementById('info_perfil').textContent = u.admin ? 'Administrador' : 'Usuário';
+
+initLojaSelector();
+</script>
+</body>
+</html>

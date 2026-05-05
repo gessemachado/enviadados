@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Obsidian — Perfil</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#131312"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="stylesheet" href="obsidian.css"/>
+<style>
+.perfil-card {
+  margin: .75rem .875rem 0;
+  background: var(--s-low);
+  border: 1px solid var(--outline);
+  border-radius: var(--r-lg);
+  padding: 1rem;
+}
+.perfil-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#ff6600,#561d00);
+  display: flex; align-items: center; justify-content: center;
+  font-family:'Manrope',sans-serif; font-weight:900; font-size:1.4rem; color:#fff;
+  flex-shrink: 0;
+}
+.perfil-info { flex:1; min-width:0; }
+.perfil-info__nome { font-family:'Manrope',sans-serif; font-weight:800; font-size:.95rem; color:var(--text); }
+.perfil-info__email { font-size:.7rem; color:var(--text-off); margin-top:.15rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.perfil-badges { display:flex; gap:.375rem; margin-top:.75rem; }
+.perfil-badge { flex:1; background:var(--s-high); border-radius:.375rem; padding:.375rem .5rem; }
+.perfil-badge__lbl { font-size:.55rem; color:var(--text-off); text-transform:uppercase; letter-spacing:.04em; margin-bottom:1px; }
+.perfil-badge__val { font-family:'Manrope',sans-serif; font-size:.8rem; font-weight:800; color:var(--text); }
+.form-section { padding:.75rem .875rem; }
+.form-section__title { font-size:.6rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-off); margin-bottom:.75rem; }
+.form-group { margin-bottom:.75rem; }
+.form-group label { display:block; font-size:.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-off); margin-bottom:.35rem; }
+.field-wrap { position:relative; }
+.field-wrap .toggle-ver {
+  position:absolute; right:.625rem; top:50%; transform:translateY(-50%);
+  background:none; border:none; color:var(--text-off); cursor:pointer; padding:0; line-height:1;
+}
+.msg { padding:.625rem .875rem; border-radius:.5rem; font-size:.72rem; margin-bottom:.5rem; }
+.msg--err { background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.25); color:#f87171; }
+.msg--ok  { background:rgba(74,222,128,.1);  border:1px solid rgba(74,222,128,.25);  color:#4ade80; }
+</style>
+</head>
+<body class="page">
+
+<header class="topbar">
+  <button class="icon-btn" onclick="logout()"><span class="material-symbols-outlined" style="font-size:22px">logout</span></button>
+  <span class="topbar__title">Meu Perfil</span>
+  <span style="width:40px"></span>
+</header>
+
+<div id="loja_sel_wrap" style="display:none;padding:.5rem .875rem .25rem">
+  <select id="sel_loja" onchange="filtrarLoja(this.value)" class="inp inp--sm" style="width:100%">
+    <option value="">— Todas as lojas —</option>
+  </select>
+</div>
+
+<!-- Info do usuário -->
+<div class="perfil-card">
+  <div style="display:flex;align-items:center;gap:.75rem">
+    <div class="perfil-avatar" id="avatar_inicial">?</div>
+    <div class="perfil-info">
+      <div class="perfil-info__nome" id="info_nome">—</div>
+      <div class="perfil-info__email" id="info_email">—</div>
+    </div>
+  </div>
+  <div class="perfil-badges">
+    <div class="perfil-badge">
+      <div class="perfil-badge__lbl">Loja</div>
+      <div class="perfil-badge__val" id="info_loja">—</div>
+    </div>
+    <div class="perfil-badge">
+      <div class="perfil-badge__lbl">Perfil</div>
+      <div class="perfil-badge__val" id="info_perfil">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Troca de senha -->
+<div class="form-section" style="padding-top:1rem">
+  <div class="form-section__title">Alterar Senha</div>
+
+  <div id="msg_erro" class="msg msg--err" style="display:none"></div>
+  <div id="msg_ok"   class="msg msg--ok"  style="display:none">Senha alterada com sucesso!</div>
+
+  <div class="form-group">
+    <label>Senha Atual</label>
+    <div class="field-wrap">
+      <input id="senha_atual" type="password" placeholder="••••••••" class="inp" style="width:100%;padding-right:2.5rem"/>
+      <button class="toggle-ver" onclick="toggleVer('senha_atual')">
+        <span class="material-symbols-outlined" id="ico_senha_atual" style="font-size:18px">visibility_off</span>
+      </button>
+    </div>
+  </div>
+  <div class="form-group">
+    <label>Nova Senha</label>
+    <div class="field-wrap">
+      <input id="nova_senha" type="password" placeholder="Mínimo 6 caracteres" class="inp" style="width:100%;padding-right:2.5rem"/>
+      <button class="toggle-ver" onclick="toggleVer('nova_senha')">
+        <span class="material-symbols-outlined" id="ico_nova_senha" style="font-size:18px">visibility_off</span>
+      </button>
+    </div>
+  </div>
+  <div class="form-group">
+    <label>Confirmar Nova Senha</label>
+    <div class="field-wrap">
+      <input id="confirmar" type="password" placeholder="Repita a nova senha" class="inp" style="width:100%;padding-right:2.5rem"/>
+      <button class="toggle-ver" onclick="toggleVer('confirmar')">
+        <span class="material-symbols-outlined" id="ico_confirmar" style="font-size:18px">visibility_off</span>
+      </button>
+    </div>
+  </div>
+
+  <button id="btn_salvar" onclick="salvarSenha()" class="btn btn--primary" style="width:100%;margin-top:.25rem">
+    <span class="material-symbols-outlined" style="font-size:18px">lock_reset</span>
+    Alterar Senha
+  </button>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diário</span></a>
+  <a href="produtos.html" class="nav-item"><span class="material-symbols-outlined">bar_chart</span><span>Produtos</span></a>
+  <a href="financeiro.html" class="nav-item"><span class="material-symbols-outlined">payments</span><span>Financeiro</span></a>
+  <a href="projecao.html" class="nav-item"><span class="material-symbols-outlined">warehouse</span><span>Projeção</span></a>
+  <a href="perfil.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">manage_accounts</span><span>Perfil</span></a>
+</nav>
+
+<script>
+if (!localStorage.getItem('obs_token')) location.href = 'login.html';
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); location.href = 'login.html'; }
+
+function filtrarLoja(v) {
+  if (v) sessionStorage.setItem('obs_tenant_filter', v);
+  else sessionStorage.removeItem('obs_tenant_filter');
+  location.reload();
+}
+async function initLojaSelector() {
+  const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
+  if (!u.admin) return;
+  const wrap = document.getElementById('loja_sel_wrap');
+  wrap.style.display = 'block';
+  try {
+    const lojas = await apiFetch('/api/lojas');
+    const sel = document.getElementById('sel_loja');
+    lojas.forEach(l => { const o = new Option(l.nome, l.id_tenant || ''); sel.appendChild(o); });
+    const saved = sessionStorage.getItem('obs_tenant_filter');
+    if (saved) sel.value = saved;
+  } catch(e) {}
+}
+async function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('obs_token');
+  const tenant = sessionStorage.getItem('obs_tenant_filter');
+  if (tenant) url += (url.includes('?') ? '&' : '?') + 'tenant_filter=' + tenant;
+  const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
+  if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function toggleVer(id) {
+  const inp = document.getElementById(id);
+  const ico = document.getElementById('ico_' + id);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  ico.textContent = show ? 'visibility' : 'visibility_off';
+}
+
+async function salvarSenha() {
+  const senhaAtual = document.getElementById('senha_atual').value.trim();
+  const novaSenha  = document.getElementById('nova_senha').value;
+  const confirmar  = document.getElementById('confirmar').value;
+
+  document.getElementById('msg_erro').style.display = 'none';
+  document.getElementById('msg_ok').style.display = 'none';
+
+  if (!senhaAtual || !novaSenha || !confirmar) { mostrarErro('Preencha todos os campos.'); return; }
+  if (novaSenha !== confirmar) { mostrarErro('Nova senha e confirmação não coincidem.'); return; }
+  if (novaSenha.length < 6) { mostrarErro('A nova senha deve ter pelo menos 6 caracteres.'); return; }
+
+  const btn = document.getElementById('btn_salvar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-symbols-outlined spin" style="font-size:18px">sync</span> Salvando...';
+
+  try {
+    await apiFetch('/api/perfil/senha', {
+      method: 'PATCH',
+      body: JSON.stringify({ senha_atual: senhaAtual, nova_senha: novaSenha, confirmar }),
+    });
+    document.getElementById('msg_ok').style.display = 'block';
+    document.getElementById('senha_atual').value = '';
+    document.getElementById('nova_senha').value = '';
+    document.getElementById('confirmar').value = '';
+  } catch(e) {
+    let msg = e.message || 'Erro ao alterar senha.';
+    try { msg = JSON.parse(msg).error || msg; } catch(_) {}
+    mostrarErro(msg);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">lock_reset</span> Alterar Senha';
+  }
+}
+
+function mostrarErro(msg) {
+  const el = document.getElementById('msg_erro');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
+if (u.nome) {
+  document.getElementById('info_nome').textContent = u.nome;
+  document.getElementById('avatar_inicial').textContent = u.nome.charAt(0).toUpperCase();
+}
+if (u.email) document.getElementById('info_email').textContent = u.email;
+document.getElementById('info_perfil').textContent = u.admin ? 'Administrador' : 'Usuário';
+
+initLojaSelector();
+</script>
+</body>
+</html>

@@ -254,6 +254,36 @@ def usuarios():
     return _ok(rows[0] if rows else {}), 201
 
 
+# ── Perfil — Troca de senha ───────────────────────────────────────────────────
+
+@app.route('/api/perfil/senha', methods=['PATCH', 'OPTIONS'])
+@token_required
+def perfil_senha():
+    if request.method == 'OPTIONS':
+        return _cors_preflight()
+
+    body = request.json or {}
+    senha_atual  = body.get('senha_atual') or ''
+    nova_senha   = body.get('nova_senha') or ''
+    confirmar    = body.get('confirmar') or ''
+
+    if not senha_atual or not nova_senha or not confirmar:
+        return _err('Todos os campos são obrigatórios')
+    if nova_senha != confirmar:
+        return _err('Nova senha e confirmação não coincidem')
+    if len(nova_senha) < 6:
+        return _err('Nova senha deve ter pelo menos 6 caracteres')
+
+    id_usuario = request.user.get('id_usuario')
+    rows = _query("SELECT senha_hash FROM usuarios WHERE id_usuario = %s", (id_usuario,))
+    if not rows or rows[0]['senha_hash'] != _hash(senha_atual):
+        return _err('Senha atual incorreta', 401)
+
+    _write("UPDATE usuarios SET senha_hash = %s WHERE id_usuario = %s",
+           (_hash(nova_senha), id_usuario))
+    return _ok({'ok': True})
+
+
 # ── Saídas ────────────────────────────────────────────────────────────────────
 
 @app.route('/api/saidas')
