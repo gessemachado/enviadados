@@ -134,6 +134,21 @@ def _tenant_user():
     return user.get('id_tenant'), bool(user.get('admin'))
 
 
+def _tenant_filter():
+    """Retorna o id_tenant efetivo para filtro (None = mostrar tudo)."""
+    user = getattr(request, 'user', {})
+    is_admin = bool(user.get('admin'))
+    if is_admin:
+        tf = request.args.get('tenant_filter')
+        if tf:
+            try:
+                return int(tf)
+            except (ValueError, TypeError):
+                pass
+        return None  # admin sem filtro = vê tudo
+    return user.get('id_tenant')
+
+
 # ── Login ─────────────────────────────────────────────────────────────────────
 
 @app.route('/api/login', methods=['POST', 'OPTIONS'])
@@ -249,7 +264,7 @@ def saidas():
     if not inicio or not fim:
         return _err('inicio e fim são obrigatórios')
 
-    id_tenant, is_admin = _tenant_user()
+    tenant = _tenant_filter()
     base_sql = """
         SELECT id_saida, id_produto, codigo, descricao,
                data_venda, quantidade_vendida, preco_venda,
@@ -259,9 +274,9 @@ def saidas():
         WHERE data_venda::date BETWEEN %s AND %s
           AND operacao = 'V' AND quantidade_vendida > 0
     """
-    if is_admin or id_tenant is None:
+    if tenant is None:
         return _ok(_query(base_sql, (inicio, fim)))
-    return _ok(_query(base_sql + " AND id_tenant = %s", (inicio, fim, id_tenant)))
+    return _ok(_query(base_sql + " AND id_tenant = %s", (inicio, fim, tenant)))
 
 
 # ── Cadastros ─────────────────────────────────────────────────────────────────
@@ -269,55 +284,55 @@ def saidas():
 @app.route('/api/produtos')
 @token_required
 def produtos():
-    id_tenant, is_admin = _tenant_user()
+    tenant = _tenant_filter()
     sql = """
         SELECT id_produto, codigo, descricao, unidade,
                preco, custo_medio, est_minimo,
                id_grupo, grupo, id_fornecedor, ativo
         FROM produtos
     """
-    if is_admin or id_tenant is None:
+    if tenant is None:
         return _ok(_query(sql))
-    return _ok(_query(sql + " WHERE id_tenant = %s", (id_tenant,)))
+    return _ok(_query(sql + " WHERE id_tenant = %s", (tenant,)))
 
 
 @app.route('/api/estoque')
 @token_required
 def estoque():
-    id_tenant, is_admin = _tenant_user()
-    if is_admin or id_tenant is None:
+    tenant = _tenant_filter()
+    if tenant is None:
         return _ok(_query("SELECT id_produto, id_loja, estoque FROM estoque"))
-    return _ok(_query("SELECT id_produto, id_loja, estoque FROM estoque WHERE id_tenant = %s", (id_tenant,)))
+    return _ok(_query("SELECT id_produto, id_loja, estoque FROM estoque WHERE id_tenant = %s", (tenant,)))
 
 
 @app.route('/api/vendedores')
 @token_required
 def vendedores():
-    id_tenant, is_admin = _tenant_user()
+    tenant = _tenant_filter()
     sql = "SELECT id_vendedor, nome, apelido, funcao, ativo, meta, id_loja FROM vendedores"
-    if is_admin or id_tenant is None:
+    if tenant is None:
         return _ok(_query(sql))
-    return _ok(_query(sql + " WHERE id_tenant = %s", (id_tenant,)))
+    return _ok(_query(sql + " WHERE id_tenant = %s", (tenant,)))
 
 
 @app.route('/api/plano_venda')
 @token_required
 def plano_venda():
-    id_tenant, is_admin = _tenant_user()
+    tenant = _tenant_filter()
     sql = "SELECT id_plano, descricao FROM plano_venda"
-    if is_admin or id_tenant is None:
+    if tenant is None:
         return _ok(_query(sql + " ORDER BY id_plano"))
-    return _ok(_query(sql + " WHERE id_tenant = %s ORDER BY id_plano", (id_tenant,)))
+    return _ok(_query(sql + " WHERE id_tenant = %s ORDER BY id_plano", (tenant,)))
 
 
 @app.route('/api/grupos')
 @token_required
 def grupos():
-    id_tenant, is_admin = _tenant_user()
+    tenant = _tenant_filter()
     sql = "SELECT DISTINCT id_grupo, grupo FROM produtos WHERE id_grupo IS NOT NULL"
-    if is_admin or id_tenant is None:
+    if tenant is None:
         return _ok(_query(sql + " ORDER BY id_grupo"))
-    return _ok(_query(sql + " AND id_tenant = %s ORDER BY id_grupo", (id_tenant,)))
+    return _ok(_query(sql + " AND id_tenant = %s ORDER BY id_grupo", (tenant,)))
 
 
 # ── Relatório de estoque ──────────────────────────────────────────────────────
@@ -331,8 +346,9 @@ def relatorio_estoque():
     grupos_ids  = body.get('grupos', [])
     dif_max     = float(body.get('diferenca_max', 5))
 
-    id_tenant_user, is_admin = _tenant_user()
-    id_tenant = int(body.get('id_tenant', 1)) if (is_admin or id_tenant_user is None) else id_tenant_user
+    tenant = _tenant_filter()
+    if tenant is None:
+        tenant = int(body.get('id_tenant', 1))
 
     if not data_inicio or not data_fim or not grupos_ids:
         return _err('data_inicio, data_fim e grupos são obrigatórios')
@@ -368,7 +384,7 @@ def relatorio_estoque():
         WHERE p.id_grupo = ANY(%s)
           AND (COALESCE(e.total,0) - (v.quant_vend/%s)*30) <= %s
         ORDER BY p.id_grupo, p.descricao
-    """, (data_inicio, data_fim, id_tenant, id_tenant,
+    """, (data_inicio, data_fim, tenant, tenant,
           meses, dias, dias, dias, dias, grupos_ids, dias, dif_max))
     return _ok(rows)
 

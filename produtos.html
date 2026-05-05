@@ -70,6 +70,13 @@ tailwind.config = {
       <span class="material-symbols-outlined mr-3">admin_panel_settings</span><span>Admin</span>
     </a>
   </nav>
+  <div id="loja_sel_wrap" class="hidden px-4 pb-3">
+    <p class="text-[9px] font-semibold text-gray-600 uppercase tracking-widest mb-1.5 px-1">Loja</p>
+    <select id="sel_loja" onchange="filtrarLoja(this.value)"
+      class="w-full bg-[#111110] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF6600]/50">
+      <option value="">— Todas as lojas —</option>
+    </select>
+  </div>
   <div class="p-4 border-t border-white/5">
     <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-xs">
       <span class="material-symbols-outlined text-base">logout</span>Sair
@@ -221,8 +228,27 @@ tailwind.config = {
 </main>
 
 <script>
+function filtrarLoja(v) {
+  if (v) sessionStorage.setItem('obs_tenant_filter', v);
+  else sessionStorage.removeItem('obs_tenant_filter');
+  location.reload();
+}
+async function initLojaSelector() {
+  const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
+  if (!u.admin) return;
+  document.getElementById('loja_sel_wrap').classList.remove('hidden');
+  try {
+    const lojas = await apiFetch('/api/lojas');
+    const sel = document.getElementById('sel_loja');
+    lojas.forEach(l => { const o = new Option(l.nome, l.id_tenant||''); sel.appendChild(o); });
+    const saved = sessionStorage.getItem('obs_tenant_filter');
+    if (saved) sel.value = saved;
+  } catch(e) {}
+}
 async function apiFetch(url, opts = {}) {
   const token = localStorage.getItem('obs_token');
+  const tenant = sessionStorage.getItem('obs_tenant_filter');
+  if (tenant) url += (url.includes('?') ? '&' : '?') + 'tenant_filter=' + tenant;
   const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}` } });
   if (r.status === 401) { localStorage.removeItem('obs_token'); location.href = 'login.html'; throw new Error('Sessão expirada'); }
   if (!r.ok) throw new Error(`API ${url} → ${r.status}`);
@@ -556,6 +582,7 @@ function renderPaginacaoBtns(containerId, pagAtual, nPaginas, onPage) {
 setGppPagina(10);
 setPorPagina(10);
 carregarMes();
+initLojaSelector();
 
 function toggleSidebar() {
   const s = document.getElementById('sidebar');

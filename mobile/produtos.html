@@ -27,6 +27,12 @@
   </div>
 </header>
 
+<div id="loja_sel_wrap" style="display:none;padding:.5rem .875rem .25rem">
+  <select id="sel_loja" onchange="filtrarLoja(this.value)" class="inp inp--sm" style="width:100%">
+    <option value="">— Todas as lojas —</option>
+  </select>
+</div>
+
 <!-- Vendas por Grupo -->
 <div class="section-head"><span class="section-title">Vendas por Grupo</span></div>
 <div class="scroll-x" style="padding:0 .875rem .5rem">
@@ -76,8 +82,28 @@ const PPP = 10;
 
 function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); location.href = 'login.html'; }
 
+function filtrarLoja(v) {
+  if (v) sessionStorage.setItem('obs_tenant_filter', v);
+  else sessionStorage.removeItem('obs_tenant_filter');
+  location.reload();
+}
+async function initLojaSelector() {
+  const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
+  if (!u.admin) return;
+  const wrap = document.getElementById('loja_sel_wrap');
+  wrap.style.display = 'block';
+  try {
+    const lojas = await apiFetch('/api/lojas');
+    const sel = document.getElementById('sel_loja');
+    lojas.forEach(l => { const o = new Option(l.nome, l.id_tenant||''); sel.appendChild(o); });
+    const saved = sessionStorage.getItem('obs_tenant_filter');
+    if (saved) sel.value = saved;
+  } catch(e) {}
+}
 async function apiFetch(url, opts = {}) {
   const token = localStorage.getItem('obs_token');
+  const tenant = sessionStorage.getItem('obs_tenant_filter');
+  if (tenant) url += (url.includes('?') ? '&' : '?') + 'tenant_filter=' + tenant;
   const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}` } });
   if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
   if (!r.ok) throw new Error(await r.text());
@@ -212,6 +238,7 @@ function mudarMes(d) {
   carregar();
 }
 carregar();
+initLojaSelector();
 </script>
 </body>
 </html>
