@@ -26,7 +26,7 @@
   </div>
   <div class="flex items-center gap-4">
     <span id="nome_usuario" class="text-gray-500 text-xs"></span>
-    <button onclick="logout()" class="text-gray-500 hover:text-white transition-colors flex items-center gap-1 text-xs">
+    <button type="button" onclick="logout()" class="text-gray-500 hover:text-white transition-colors flex items-center gap-1 text-xs">
       <span class="material-symbols-outlined text-base">logout</span> Sair
     </button>
   </div>
@@ -197,15 +197,15 @@
 <script>
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const token = localStorage.getItem('obs_token');
-if (!token) { location.href = 'login.html'; }
+if (!token) { window.location.replace('/login.html'); throw new Error(); }
 try {
   const p = JSON.parse(atob(token.split('.')[1]));
-  if (Date.now() / 1000 > p.exp) { localStorage.removeItem('obs_token'); location.href = 'login.html'; }
-  if (!p.admin) { location.href = 'calendario_vendas.html'; }
+  if (Date.now() / 1000 > p.exp) { localStorage.removeItem('obs_token'); window.location.replace('/login.html'); throw new Error(); }
+  if (!p.admin) { window.location.replace('/calendario_vendas.html'); throw new Error(); }
   document.getElementById('nome_usuario').textContent = p.nome;
-} catch { location.href = 'login.html'; }
+} catch(e) { if (!e.message) window.location.replace('/login.html'); }
 
-function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); location.href = 'login.html'; }
+function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); window.location.replace('/login.html'); }
 
 // ── API ───────────────────────────────────────────────────────────────────────
 async function api(url, opts = {}) {
@@ -256,7 +256,7 @@ async function carregarLojas() {
           </span>
         </td>
         <td class="px-4 py-3">
-          <button onclick="abrirEditar(${l.id_loja},'${l.nome.replace(/'/g,"\\'")}','${l.cnpj||''}',${l.id_tenant||''})"
+          <button onclick="abrirEditar(${l.id_loja},'${l.nome.replace(/'/g,"\\'")}','${l.cnpj||''}',${l.id_tenant ?? 'null'})"
             class="text-gray-500 hover:text-[#FF6600] transition-colors">
             <span class="material-symbols-outlined text-base">edit</span>
           </button>
