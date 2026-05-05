@@ -193,6 +193,22 @@ def lojas():
     return _ok(rows[0] if rows else {}), 201
 
 
+@app.route('/api/lojas/<int:id_loja>', methods=['PATCH', 'OPTIONS'])
+@admin_required
+def loja_update(id_loja):
+    body = request.json or {}
+    nome   = (body.get('nome') or '').strip()
+    cnpj   = body.get('cnpj') or None
+    tenant = body.get('id_tenant') or None
+    if not nome:
+        return _err('Nome é obrigatório')
+    rows = _write(
+        "UPDATE lojas SET nome=%s, cnpj=%s, id_tenant=%s WHERE id_loja=%s RETURNING id_loja, nome, cnpj, id_tenant, ativo",
+        (nome, cnpj, tenant, id_loja)
+    )
+    return _ok(rows[0] if rows else {})
+
+
 # ── Admin — Usuários ──────────────────────────────────────────────────────────
 
 @app.route('/api/usuarios', methods=['GET', 'POST', 'OPTIONS'])

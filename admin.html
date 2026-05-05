@@ -91,10 +91,11 @@
             <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">CNPJ</th>
             <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Tenant</th>
             <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Status</th>
+            <th class="px-4 py-3"></th>
           </tr>
         </thead>
         <tbody id="tbody_lojas">
-          <tr><td colspan="5" class="px-4 py-6 text-center text-gray-600 text-xs">Carregando...</td></tr>
+          <tr><td colspan="6" class="px-4 py-6 text-center text-gray-600 text-xs">Carregando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -166,6 +167,33 @@
 
 </main>
 
+<!-- Modal Editar Loja -->
+<div id="modal_editar" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+  <div class="bg-[#1c1b1b] border border-white/10 rounded-2xl p-6 w-full max-w-md">
+    <h3 class="text-white font-bold text-base mb-4">Editar loja</h3>
+    <div class="space-y-3 mb-4">
+      <div>
+        <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Nome *</label>
+        <input id="edit_nome" type="text" class="w-full bg-[#111110] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF6600]/50"/>
+      </div>
+      <div>
+        <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">CNPJ</label>
+        <input id="edit_cnpj" type="text" class="w-full bg-[#111110] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF6600]/50"/>
+      </div>
+      <div>
+        <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">ID Tenant *</label>
+        <input id="edit_tenant" type="number" min="1" class="w-full bg-[#111110] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF6600]/50"/>
+        <p class="text-[10px] text-gray-600 mt-1">Deve coincidir com id_tenant no config.ini do SyncAgent</p>
+      </div>
+    </div>
+    <div id="edit_erro" class="text-red-400 text-xs mb-3 hidden"></div>
+    <div class="flex gap-2">
+      <button onclick="salvarEditar()" class="bg-[#FF6600] hover:bg-[#e55a00] text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors">Salvar</button>
+      <button onclick="fecharEditar()" class="text-gray-500 hover:text-gray-300 text-xs px-3 py-2">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const token = localStorage.getItem('obs_token');
@@ -213,7 +241,7 @@ async function carregarLojas() {
     lojasList = await api('/api/lojas');
     const tb = document.getElementById('tbody_lojas');
     if (!lojasList.length) {
-      tb.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-600 text-xs">Nenhuma loja cadastrada</td></tr>';
+      tb.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-center text-gray-600 text-xs">Nenhuma loja cadastrada</td></tr>';
       return;
     }
     tb.innerHTML = lojasList.map(l => `
@@ -221,11 +249,17 @@ async function carregarLojas() {
         <td class="px-4 py-3 text-gray-400 text-xs">${l.id_loja}</td>
         <td class="px-4 py-3 text-white font-medium">${l.nome}</td>
         <td class="px-4 py-3 text-gray-400 text-xs">${l.cnpj || '—'}</td>
-        <td class="px-4 py-3 text-gray-400 text-xs font-mono">${l.id_tenant ?? '—'}</td>
+        <td class="px-4 py-3 text-xs font-mono ${l.id_tenant ? 'text-[#FF6600]' : 'text-red-400'}">${l.id_tenant ?? '—'}</td>
         <td class="px-4 py-3">
           <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${l.ativo ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}">
             ${l.ativo ? 'Ativa' : 'Inativa'}
           </span>
+        </td>
+        <td class="px-4 py-3">
+          <button onclick="abrirEditar(${l.id_loja},'${l.nome.replace(/'/g,"\\'")}','${l.cnpj||''}',${l.id_tenant||''})"
+            class="text-gray-500 hover:text-[#FF6600] transition-colors">
+            <span class="material-symbols-outlined text-base">edit</span>
+          </button>
         </td>
       </tr>
     `).join('');
@@ -309,6 +343,41 @@ async function criarUsuario() {
     document.getElementById('u_admin').checked = false;
     toggleForm('form_usuario');
     carregarUsuarios();
+  } catch(e) { err.textContent = e.message; err.classList.remove('hidden'); }
+}
+
+// ── Editar Loja ───────────────────────────────────────────────────────────────
+let editandoId = null;
+
+function abrirEditar(id, nome, cnpj, tenant) {
+  editandoId = id;
+  document.getElementById('edit_nome').value   = nome;
+  document.getElementById('edit_cnpj').value   = cnpj;
+  document.getElementById('edit_tenant').value = tenant || '';
+  document.getElementById('edit_erro').classList.add('hidden');
+  document.getElementById('modal_editar').classList.remove('hidden');
+}
+
+function fecharEditar() {
+  document.getElementById('modal_editar').classList.add('hidden');
+  editandoId = null;
+}
+
+async function salvarEditar() {
+  const nome   = document.getElementById('edit_nome').value.trim();
+  const cnpj   = document.getElementById('edit_cnpj').value.trim();
+  const tenant = parseInt(document.getElementById('edit_tenant').value) || null;
+  const err    = document.getElementById('edit_erro');
+  err.classList.add('hidden');
+  if (!nome) { err.textContent = 'Nome é obrigatório'; err.classList.remove('hidden'); return; }
+  if (!tenant) { err.textContent = 'ID Tenant é obrigatório'; err.classList.remove('hidden'); return; }
+  try {
+    await api(`/api/lojas/${editandoId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ nome, cnpj, id_tenant: tenant })
+    });
+    fecharEditar();
+    carregarLojas();
   } catch(e) { err.textContent = e.message; err.classList.remove('hidden'); }
 }
 
