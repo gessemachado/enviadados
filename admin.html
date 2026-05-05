@@ -59,7 +59,7 @@
     <!-- Form nova loja -->
     <div id="form_loja" class="hidden bg-surface-container border border-white/5 rounded-xl p-4 mb-4">
       <h3 class="text-white font-semibold text-sm mb-3">Nova loja</h3>
-      <div class="grid grid-cols-2 gap-3 mb-3">
+      <div class="grid grid-cols-3 gap-3 mb-3">
         <div>
           <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Nome *</label>
           <input id="loja_nome" type="text" placeholder="Ex: Matriz" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
@@ -67,6 +67,11 @@
         <div>
           <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">CNPJ</label>
           <input id="loja_cnpj" type="text" placeholder="00.000.000/0000-00" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">ID Tenant *</label>
+          <input id="loja_tenant" type="number" min="1" placeholder="Ex: 1" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
+          <p class="text-[10px] text-gray-600 mt-1">Deve coincidir com id_tenant no config.ini do SyncAgent</p>
         </div>
       </div>
       <div id="loja_erro" class="text-red-400 text-xs mb-2 hidden"></div>
@@ -84,11 +89,12 @@
             <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">ID</th>
             <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Nome</th>
             <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">CNPJ</th>
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Tenant</th>
             <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Status</th>
           </tr>
         </thead>
         <tbody id="tbody_lojas">
-          <tr><td colspan="4" class="px-4 py-6 text-center text-gray-600 text-xs">Carregando...</td></tr>
+          <tr><td colspan="5" class="px-4 py-6 text-center text-gray-600 text-xs">Carregando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -207,7 +213,7 @@ async function carregarLojas() {
     lojasList = await api('/api/lojas');
     const tb = document.getElementById('tbody_lojas');
     if (!lojasList.length) {
-      tb.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600 text-xs">Nenhuma loja cadastrada</td></tr>';
+      tb.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-600 text-xs">Nenhuma loja cadastrada</td></tr>';
       return;
     }
     tb.innerHTML = lojasList.map(l => `
@@ -215,6 +221,7 @@ async function carregarLojas() {
         <td class="px-4 py-3 text-gray-400 text-xs">${l.id_loja}</td>
         <td class="px-4 py-3 text-white font-medium">${l.nome}</td>
         <td class="px-4 py-3 text-gray-400 text-xs">${l.cnpj || '—'}</td>
+        <td class="px-4 py-3 text-gray-400 text-xs font-mono">${l.id_tenant ?? '—'}</td>
         <td class="px-4 py-3">
           <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${l.ativo ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}">
             ${l.ativo ? 'Ativa' : 'Inativa'}
@@ -234,15 +241,18 @@ async function carregarLojas() {
 }
 
 async function criarLoja() {
-  const nome = document.getElementById('loja_nome').value.trim();
-  const cnpj = document.getElementById('loja_cnpj').value.trim();
-  const err  = document.getElementById('loja_erro');
+  const nome   = document.getElementById('loja_nome').value.trim();
+  const cnpj   = document.getElementById('loja_cnpj').value.trim();
+  const tenant = parseInt(document.getElementById('loja_tenant').value) || null;
+  const err    = document.getElementById('loja_erro');
   err.classList.add('hidden');
   if (!nome) { err.textContent = 'Nome é obrigatório'; err.classList.remove('hidden'); return; }
+  if (!tenant) { err.textContent = 'ID Tenant é obrigatório'; err.classList.remove('hidden'); return; }
   try {
-    await api('/api/lojas', { method: 'POST', body: JSON.stringify({ nome, cnpj }) });
+    await api('/api/lojas', { method: 'POST', body: JSON.stringify({ nome, cnpj, id_tenant: tenant }) });
     document.getElementById('loja_nome').value = '';
     document.getElementById('loja_cnpj').value = '';
+    document.getElementById('loja_tenant').value = '';
     toggleForm('form_loja');
     carregarLojas();
   } catch(e) { err.textContent = e.message; err.classList.remove('hidden'); }

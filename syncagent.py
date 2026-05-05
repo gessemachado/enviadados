@@ -269,8 +269,9 @@ def executar_ciclo(cfg, logger):
     arquivo  = sync_cfg.get('ultimo_sync_arquivo', 'ultimo_sync.json')
     tentativas = int(sync_cfg.get('retry_tentativas', 3))
     espera     = int(sync_cfg.get('retry_espera_s', 5))
+    id_tenant  = int(cfg.get('enviadados', 'id_tenant', fallback=0))
 
-    logger.info('=== Iniciando ciclo de sincronizacao ===')
+    logger.info(f'=== Iniciando ciclo de sincronizacao | id_tenant={id_tenant} ===')
     inicio = datetime.now()
 
     try:
@@ -292,6 +293,8 @@ def executar_ciclo(cfg, logger):
                     if not batch:
                         continue
                     lote_num += 1
+                    for r in batch:
+                        r['id_tenant'] = id_tenant
                     ok = upsert_postgres(pg_cfg, tabela, serializar_batch(batch), tentativas, espera)
                     if ok:
                         total += len(batch)

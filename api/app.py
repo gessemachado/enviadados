@@ -129,6 +129,11 @@ def _loja_user():
     return user.get('id_loja'), bool(user.get('admin'))
 
 
+def _tenant_user():
+    user = getattr(request, 'user', {})
+    return user.get('id_tenant'), bool(user.get('admin'))
+
+
 # ── Login ─────────────────────────────────────────────────────────────────────
 
 @app.route('/api/login', methods=['POST', 'OPTIONS'])
@@ -143,10 +148,13 @@ def login():
     if not email or not senha:
         return _err('Email e senha são obrigatórios')
 
-    rows = _query(
-        "SELECT id_usuario, nome, email, senha_hash, id_loja, admin, ativo FROM usuarios WHERE email = %s",
-        (email,)
-    )
+    rows = _query("""
+        SELECT u.id_usuario, u.nome, u.email, u.senha_hash, u.id_loja,
+               l.id_tenant, u.admin, u.ativo
+        FROM usuarios u
+        LEFT JOIN lojas l ON l.id_loja = u.id_loja
+        WHERE u.email = %s
+    """, (email,))
     if not rows or not rows[0]['ativo'] or rows[0]['senha_hash'] != _hash(senha):
         return _err('Credenciais inválidas', 401)
 
@@ -156,11 +164,13 @@ def login():
         'nome':       u['nome'],
         'email':      u['email'],
         'id_loja':    u['id_loja'],
+        'id_tenant':  u['id_tenant'],
         'admin':      u['admin'],
         'exp':        datetime.utcnow() + timedelta(hours=8),
     }
     token = jwt.encode(payload, SECRET, algorithm='HS256')
-    return _ok({'token': token, 'nome': u['nome'], 'id_loja': u['id_loja'], 'admin': u['admin']})
+    return _ok({'token': token, 'nome': u['nome'], 'id_loja': u['id_loja'],
+                'id_tenant': u['id_tenant'], 'admin': u['admin']})
 
 
 # ── Admin — Lojas ─────────────────────────────────────────────────────────────
@@ -169,7 +179,7 @@ def login():
 @admin_required
 def lojas():
     if request.method == 'GET':
-        return _ok(_query("SELECT id_loja, nome, cnpj, ativo FROM lojas ORDER BY nome"))
+        return _ok(_query("SELECT id_loja, nome, cnpj, id_tenant, ativo FROM lojas ORDER BY nome"))
 
     body = request.json or {}
     nome = (body.get('nome') or '').strip()
@@ -177,8 +187,8 @@ def lojas():
         return _err('Nome é obrigatório')
 
     rows = _write(
-        "INSERT INTO lojas (nome, cnpj) VALUES (%s, %s) RETURNING id_loja, nome, cnpj, ativo",
-        (nome, body.get('cnpj') or None)
+        "INSERT INTO lojas (nome, cnpj, id_tenant) VALUES (%s, %s, %s) RETURNING id_loja, nome, cnpj, id_tenant, ativo",
+        (nome, body.get('cnpj') or None, body.get('id_tenant') or None)
     )
     return _ok(rows[0] if rows else {}), 201
 
@@ -223,7 +233,7 @@ def saidas():
     if not inicio or not fim:
         return _err('inicio e fim são obrigatórios')
 
-    id_loja, is_admin = _loja_user()
+    id_tenant, is_admin = _tenant_user()
     base_sql = """
         SELECT id_saida, id_produto, codigo, descricao,
                data_venda, quantidade_vendida, preco_venda,
@@ -233,9 +243,9 @@ def saidas():
         WHERE data_venda::date BETWEEN %s AND %s
           AND operacao = 'V' AND quantidade_vendida > 0
     """
-    if is_admin or id_loja is None:
+    if is_admin or id_tenant is None:
         return _ok(_query(base_sql, (inicio, fim)))
-    return _ok(_query(base_sql + " AND id_loja = %s", (inicio, fim, id_loja)))
+    return _ok(_query(base_sql + " AND id_tenant = %s", (inicio, fim, id_tenant)))
 
 
 # ── Cadastros ─────────────────────────────────────────────────────────────────
@@ -243,46 +253,55 @@ def saidas():
 @app.route('/api/produtos')
 @token_required
 def produtos():
-    return _ok(_query("""
+    id_tenant, is_admin = _tenant_user()
+    sql = """
         SELECT id_produto, codigo, descricao, unidade,
                preco, custo_medio, est_minimo,
                id_grupo, grupo, id_fornecedor, ativo
         FROM produtos
-    """))
+    """
+    if is_admin or id_tenant is None:
+        return _ok(_query(sql))
+    return _ok(_query(sql + " WHERE id_tenant = %s", (id_tenant,)))
 
 
 @app.route('/api/estoque')
 @token_required
 def estoque():
-    id_loja, is_admin = _loja_user()
-    if is_admin or id_loja is None:
+    id_tenant, is_admin = _tenant_user()
+    if is_admin or id_tenant is None:
         return _ok(_query("SELECT id_produto, id_loja, estoque FROM estoque"))
-    return _ok(_query("SELECT id_produto, id_loja, estoque FROM estoque WHERE id_loja = %s", (id_loja,)))
+    return _ok(_query("SELECT id_produto, id_loja, estoque FROM estoque WHERE id_tenant = %s", (id_tenant,)))
 
 
 @app.route('/api/vendedores')
 @token_required
 def vendedores():
-    id_loja, is_admin = _loja_user()
+    id_tenant, is_admin = _tenant_user()
     sql = "SELECT id_vendedor, nome, apelido, funcao, ativo, meta, id_loja FROM vendedores"
-    if is_admin or id_loja is None:
+    if is_admin or id_tenant is None:
         return _ok(_query(sql))
-    return _ok(_query(sql + " WHERE id_loja = %s", (id_loja,)))
+    return _ok(_query(sql + " WHERE id_tenant = %s", (id_tenant,)))
 
 
 @app.route('/api/plano_venda')
 @token_required
 def plano_venda():
-    return _ok(_query("SELECT id_plano, descricao FROM plano_venda ORDER BY id_plano"))
+    id_tenant, is_admin = _tenant_user()
+    sql = "SELECT id_plano, descricao FROM plano_venda"
+    if is_admin or id_tenant is None:
+        return _ok(_query(sql + " ORDER BY id_plano"))
+    return _ok(_query(sql + " WHERE id_tenant = %s ORDER BY id_plano", (id_tenant,)))
 
 
 @app.route('/api/grupos')
 @token_required
 def grupos():
-    return _ok(_query("""
-        SELECT DISTINCT id_grupo, grupo FROM produtos
-        WHERE id_grupo IS NOT NULL ORDER BY id_grupo
-    """))
+    id_tenant, is_admin = _tenant_user()
+    sql = "SELECT DISTINCT id_grupo, grupo FROM produtos WHERE id_grupo IS NOT NULL"
+    if is_admin or id_tenant is None:
+        return _ok(_query(sql + " ORDER BY id_grupo"))
+    return _ok(_query(sql + " AND id_tenant = %s ORDER BY id_grupo", (id_tenant,)))
 
 
 # ── Relatório de estoque ──────────────────────────────────────────────────────
@@ -296,8 +315,8 @@ def relatorio_estoque():
     grupos_ids  = body.get('grupos', [])
     dif_max     = float(body.get('diferenca_max', 5))
 
-    id_loja_user, is_admin = _loja_user()
-    id_loja = int(body.get('id_loja', 1)) if (is_admin or id_loja_user is None) else id_loja_user
+    id_tenant_user, is_admin = _tenant_user()
+    id_tenant = int(body.get('id_tenant', 1)) if (is_admin or id_tenant_user is None) else id_tenant_user
 
     if not data_inicio or not data_fim or not grupos_ids:
         return _err('data_inicio, data_fim e grupos são obrigatórios')
@@ -312,12 +331,12 @@ def relatorio_estoque():
             SELECT s.id_produto, SUM(s.quantidade_vendida) AS quant_vend
             FROM saidas s
             WHERE s.data_venda::date BETWEEN %s AND %s
-              AND s.operacao = 'V' AND s.quantidade_vendida > 0 AND s.id_loja = %s
+              AND s.operacao = 'V' AND s.quantidade_vendida > 0 AND s.id_tenant = %s
             GROUP BY s.id_produto
         ),
         estoques AS (
             SELECT id_produto, SUM(estoque) AS total
-            FROM estoque WHERE id_loja = %s GROUP BY id_produto
+            FROM estoque WHERE id_tenant = %s GROUP BY id_produto
         )
         SELECT p.id_grupo, p.grupo, p.codigo, p.descricao,
                p.unidade AS un, p.grupo AS secao, v.quant_vend,
@@ -333,7 +352,7 @@ def relatorio_estoque():
         WHERE p.id_grupo = ANY(%s)
           AND (COALESCE(e.total,0) - (v.quant_vend/%s)*30) <= %s
         ORDER BY p.id_grupo, p.descricao
-    """, (data_inicio, data_fim, id_loja, id_loja,
+    """, (data_inicio, data_fim, id_tenant, id_tenant,
           meses, dias, dias, dias, dias, grupos_ids, dias, dif_max))
     return _ok(rows)
 

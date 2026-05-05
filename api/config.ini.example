@@ -1,0 +1,28 @@
+[postgres]
+host     = 127.0.0.1
+port     = 5432
+database = enviadados
+user     = enviadados
+password = SENHA_PG_AQUI
+
+[app]
+secret_key = CHAVE_SECRETA_AQUI
+
+[enviadados]
+; ID único deste tenant/loja — deve coincidir com id_tenant na tabela lojas
+; Cada instalação do SyncAgent recebe um id_tenant diferente
+id_tenant = 1
+
+[firebird]
+host     = localhost
+database = CAMINHO_PARA_O_BANCO.FDB
+user     = SYSDBA
+password = masterkey
+charset  = WIN1252
+
+[sync]
+intervalo_minutos    = 15
+retry_tentativas     = 3
+retry_espera_s       = 5
+log_arquivo          = sync_log.txt
+ultimo_sync_arquivo  = ultimo_sync.json
