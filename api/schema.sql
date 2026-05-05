@@ -164,3 +164,30 @@ CREATE TABLE IF NOT EXISTS plano_venda (
     id_plano    TEXT        PRIMARY KEY,
     descricao   TEXT
 );
+
+-- ── Multi-loja ────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS lojas (
+    id_loja     SERIAL      PRIMARY KEY,
+    nome        TEXT        NOT NULL,
+    cnpj        TEXT,
+    ativo       BOOLEAN     DEFAULT TRUE,
+    criado_em   TIMESTAMP   DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id_usuario  SERIAL      PRIMARY KEY,
+    nome        TEXT        NOT NULL,
+    email       TEXT        UNIQUE NOT NULL,
+    senha_hash  TEXT        NOT NULL,
+    id_loja     INTEGER,            -- NULL = admin (acessa todas as lojas)
+    admin       BOOLEAN     DEFAULT FALSE,
+    ativo       BOOLEAN     DEFAULT TRUE,
+    criado_em   TIMESTAMP   DEFAULT NOW()
+);
+
+-- Admin inicial (mesma senha já usada no sistema)
+INSERT INTO usuarios (nome, email, senha_hash, admin)
+VALUES ('Admin', 'gesseinvest@gmail.com',
+        '33fa1b511447a982a4e7827bc6ab6a8d41173da2c039b394836e9385c501a93d', TRUE)
+ON CONFLICT (email) DO NOTHING;

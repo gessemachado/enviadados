@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Obsidian — Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: { colors: {
+      'surface': '#111110', 'surface-container': '#1c1b1b',
+      'surface-container-low': '#181817', 'on-surface': '#e6e3de',
+    }}}
+  };
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+</head>
+<body class="bg-surface text-on-surface antialiased min-h-screen">
+
+<!-- Header -->
+<header class="flex items-center justify-between px-6 py-4 border-b border-white/5">
+  <div class="flex items-center gap-3">
+    <span class="material-symbols-outlined text-[#FF6600]" style="font-variation-settings:'FILL' 1;">diamond</span>
+    <span class="text-[#FF6600] font-black text-lg tracking-tight">Obsidian</span>
+    <span class="text-gray-600 text-xs ml-2">/ Admin</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <span id="nome_usuario" class="text-gray-500 text-xs"></span>
+    <button onclick="logout()" class="text-gray-500 hover:text-white transition-colors flex items-center gap-1 text-xs">
+      <span class="material-symbols-outlined text-base">logout</span> Sair
+    </button>
+  </div>
+</header>
+
+<!-- Tabs -->
+<div class="flex gap-1 px-6 pt-5 border-b border-white/5">
+  <button id="tab_lojas" onclick="setTab('lojas')"
+    class="px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-[#FF6600] text-[#FF6600]">
+    Lojas
+  </button>
+  <button id="tab_usuarios" onclick="setTab('usuarios')"
+    class="px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-transparent text-gray-500 hover:text-gray-300 transition-colors">
+    Usuários
+  </button>
+</div>
+
+<main class="max-w-4xl mx-auto px-6 py-6 space-y-6">
+
+  <!-- LOJAS -->
+  <section id="sec_lojas">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-white font-bold text-base">Lojas cadastradas</h2>
+      <button onclick="toggleForm('form_loja')"
+        class="flex items-center gap-1 bg-[#FF6600] hover:bg-[#e55a00] text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+        <span class="material-symbols-outlined text-sm">add</span> Nova loja
+      </button>
+    </div>
+
+    <!-- Form nova loja -->
+    <div id="form_loja" class="hidden bg-surface-container border border-white/5 rounded-xl p-4 mb-4">
+      <h3 class="text-white font-semibold text-sm mb-3">Nova loja</h3>
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Nome *</label>
+          <input id="loja_nome" type="text" placeholder="Ex: Matriz" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">CNPJ</label>
+          <input id="loja_cnpj" type="text" placeholder="00.000.000/0000-00" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
+        </div>
+      </div>
+      <div id="loja_erro" class="text-red-400 text-xs mb-2 hidden"></div>
+      <div class="flex gap-2">
+        <button onclick="criarLoja()" class="bg-[#FF6600] hover:bg-[#e55a00] text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors">Salvar</button>
+        <button onclick="toggleForm('form_loja')" class="text-gray-500 hover:text-gray-300 text-xs px-3 py-2">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Tabela lojas -->
+    <div class="bg-surface-container border border-white/5 rounded-xl overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-white/5">
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">ID</th>
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Nome</th>
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">CNPJ</th>
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Status</th>
+          </tr>
+        </thead>
+        <tbody id="tbody_lojas">
+          <tr><td colspan="4" class="px-4 py-6 text-center text-gray-600 text-xs">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- USUÁRIOS -->
+  <section id="sec_usuarios" class="hidden">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-white font-bold text-base">Usuários cadastrados</h2>
+      <button onclick="toggleForm('form_usuario')"
+        class="flex items-center gap-1 bg-[#FF6600] hover:bg-[#e55a00] text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
+        <span class="material-symbols-outlined text-sm">add</span> Novo usuário
+      </button>
+    </div>
+
+    <!-- Form novo usuário -->
+    <div id="form_usuario" class="hidden bg-surface-container border border-white/5 rounded-xl p-4 mb-4">
+      <h3 class="text-white font-semibold text-sm mb-3">Novo usuário</h3>
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Nome *</label>
+          <input id="u_nome" type="text" placeholder="Nome completo" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">E-mail *</label>
+          <input id="u_email" type="email" placeholder="usuario@email.com" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Senha *</label>
+          <input id="u_senha" type="password" placeholder="••••••••" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Loja</label>
+          <select id="u_loja" class="w-full bg-surface border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF6600]/50">
+            <option value="">— Admin (todas as lojas) —</option>
+          </select>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input id="u_admin" type="checkbox" class="rounded border-white/10 bg-surface text-[#FF6600] focus:ring-[#FF6600]/30"/>
+          <span class="text-sm text-gray-400">Administrador (acessa todas as lojas e este painel)</span>
+        </label>
+      </div>
+      <div id="usuario_erro" class="text-red-400 text-xs mb-2 hidden"></div>
+      <div class="flex gap-2">
+        <button onclick="criarUsuario()" class="bg-[#FF6600] hover:bg-[#e55a00] text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors">Salvar</button>
+        <button onclick="toggleForm('form_usuario')" class="text-gray-500 hover:text-gray-300 text-xs px-3 py-2">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Tabela usuários -->
+    <div class="bg-surface-container border border-white/5 rounded-xl overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-white/5">
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Nome</th>
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">E-mail</th>
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Loja</th>
+            <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Perfil</th>
+          </tr>
+        </thead>
+        <tbody id="tbody_usuarios">
+          <tr><td colspan="4" class="px-4 py-6 text-center text-gray-600 text-xs">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────────
+const token = localStorage.getItem('obs_token');
+if (!token) { location.href = 'login.html'; }
+try {
+  const p = JSON.parse(atob(token.split('.')[1]));
+  if (Date.now() / 1000 > p.exp) { localStorage.removeItem('obs_token'); location.href = 'login.html'; }
+  if (!p.admin) { location.href = 'calendario_vendas.html'; }
+  document.getElementById('nome_usuario').textContent = p.nome;
+} catch { location.href = 'login.html'; }
+
+function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); location.href = 'login.html'; }
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function api(url, opts = {}) {
+  const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } });
+  if (r.status === 401) { logout(); throw new Error(); }
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Erro');
+  return data;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+let lojasList = [];
+
+function setTab(tab) {
+  document.getElementById('sec_lojas').classList.toggle('hidden', tab !== 'lojas');
+  document.getElementById('sec_usuarios').classList.toggle('hidden', tab !== 'usuarios');
+  document.getElementById('tab_lojas').className = tab === 'lojas'
+    ? 'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-[#FF6600] text-[#FF6600]'
+    : 'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-transparent text-gray-500 hover:text-gray-300 transition-colors';
+  document.getElementById('tab_usuarios').className = tab === 'usuarios'
+    ? 'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-[#FF6600] text-[#FF6600]'
+    : 'px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 border-transparent text-gray-500 hover:text-gray-300 transition-colors';
+  if (tab === 'usuarios') carregarUsuarios();
+}
+
+function toggleForm(id) {
+  document.getElementById(id).classList.toggle('hidden');
+}
+
+// ── Lojas ─────────────────────────────────────────────────────────────────────
+async function carregarLojas() {
+  try {
+    lojasList = await api('/api/lojas');
+    const tb = document.getElementById('tbody_lojas');
+    if (!lojasList.length) {
+      tb.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600 text-xs">Nenhuma loja cadastrada</td></tr>';
+      return;
+    }
+    tb.innerHTML = lojasList.map(l => `
+      <tr class="border-b border-white/5 last:border-0">
+        <td class="px-4 py-3 text-gray-400 text-xs">${l.id_loja}</td>
+        <td class="px-4 py-3 text-white font-medium">${l.nome}</td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${l.cnpj || '—'}</td>
+        <td class="px-4 py-3">
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${l.ativo ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}">
+            ${l.ativo ? 'Ativa' : 'Inativa'}
+          </span>
+        </td>
+      </tr>
+    `).join('');
+
+    // Atualiza select do form de usuário
+    const sel = document.getElementById('u_loja');
+    sel.innerHTML = '<option value="">— Admin (todas as lojas) —</option>' +
+      lojasList.map(l => `<option value="${l.id_loja}">${l.nome}</option>`).join('');
+  } catch(e) {
+    document.getElementById('tbody_lojas').innerHTML =
+      `<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-xs">${e.message}</td></tr>`;
+  }
+}
+
+async function criarLoja() {
+  const nome = document.getElementById('loja_nome').value.trim();
+  const cnpj = document.getElementById('loja_cnpj').value.trim();
+  const err  = document.getElementById('loja_erro');
+  err.classList.add('hidden');
+  if (!nome) { err.textContent = 'Nome é obrigatório'; err.classList.remove('hidden'); return; }
+  try {
+    await api('/api/lojas', { method: 'POST', body: JSON.stringify({ nome, cnpj }) });
+    document.getElementById('loja_nome').value = '';
+    document.getElementById('loja_cnpj').value = '';
+    toggleForm('form_loja');
+    carregarLojas();
+  } catch(e) { err.textContent = e.message; err.classList.remove('hidden'); }
+}
+
+// ── Usuários ──────────────────────────────────────────────────────────────────
+async function carregarUsuarios() {
+  try {
+    const lista = await api('/api/usuarios');
+    const tb = document.getElementById('tbody_usuarios');
+    if (!lista.length) {
+      tb.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600 text-xs">Nenhum usuário</td></tr>';
+      return;
+    }
+    tb.innerHTML = lista.map(u => `
+      <tr class="border-b border-white/5 last:border-0">
+        <td class="px-4 py-3 text-white font-medium">${u.nome}</td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${u.email}</td>
+        <td class="px-4 py-3 text-gray-400 text-xs">${u.loja || '—'}</td>
+        <td class="px-4 py-3">
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${u.admin ? 'bg-[#FF6600]/10 text-[#FF6600]' : 'bg-blue-500/10 text-blue-400'}">
+            ${u.admin ? 'Admin' : 'Usuário'}
+          </span>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) {
+    document.getElementById('tbody_usuarios').innerHTML =
+      `<tr><td colspan="4" class="px-4 py-6 text-center text-red-400 text-xs">${e.message}</td></tr>`;
+  }
+}
+
+async function criarUsuario() {
+  const nome  = document.getElementById('u_nome').value.trim();
+  const email = document.getElementById('u_email').value.trim();
+  const senha = document.getElementById('u_senha').value;
+  const loja  = document.getElementById('u_loja').value;
+  const admin = document.getElementById('u_admin').checked;
+  const err   = document.getElementById('usuario_erro');
+  err.classList.add('hidden');
+  if (!nome || !email || !senha) {
+    err.textContent = 'Nome, e-mail e senha são obrigatórios';
+    err.classList.remove('hidden'); return;
+  }
+  try {
+    await api('/api/usuarios', {
+      method: 'POST',
+      body: JSON.stringify({ nome, email, senha, id_loja: loja ? parseInt(loja) : null, admin })
+    });
+    document.getElementById('u_nome').value = '';
+    document.getElementById('u_email').value = '';
+    document.getElementById('u_senha').value = '';
+    document.getElementById('u_loja').value = '';
+    document.getElementById('u_admin').checked = false;
+    toggleForm('form_usuario');
+    carregarUsuarios();
+  } catch(e) { err.textContent = e.message; err.classList.remove('hidden'); }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+carregarLojas();
+</script>
+</body>
+</html>

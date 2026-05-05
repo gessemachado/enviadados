@@ -135,10 +135,12 @@ const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0
 let anoAtual = hoje.getFullYear(), mesAtual = hoje.getMonth();
 let _totalMes = 0, _baseMes = null, _baseAnual = null, _totalAnual = 0, _metaCalc = 0;
 
-function logout() { localStorage.removeItem('obs_session'); location.href = 'login.html'; }
+function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); location.href = 'login.html'; }
 
-async function apiFetch(url) {
-  const r = await fetch(url);
+async function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('obs_token');
+  const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}` } });
+  if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }

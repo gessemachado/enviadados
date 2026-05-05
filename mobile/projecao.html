@@ -76,13 +76,21 @@
 </nav>
 
 <script>
-if (!localStorage.getItem('obs_session')) location.href = 'login.html';
+if (!localStorage.getItem('obs_token')) location.href = 'login.html';
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
 let dadosRes = [], pRes = 1;
 const PPP = 15;
 
-function logout() { localStorage.removeItem('obs_session'); location.href = 'login.html'; }
+function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); location.href = 'login.html'; }
+
+async function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('obs_token');
+  const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}` } });
+  if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
 
 const hoje = new Date();
 const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
@@ -91,7 +99,7 @@ const iniPeriodo = `${anoAtr}-${String(hoje.getMonth()+1).padStart(2,'0')}-${Str
 document.getElementById('periodo_label').textContent = `${iniPeriodo.split('-').reverse().join('/')} – ${hojeStr.split('-').reverse().join('/')}`;
 
 async function carregarGrupos() {
-  const data = await fetch('/api/grupos').then(r => r.json());
+  const data = await apiFetch('/api/grupos');
   const wrap = document.getElementById('grupos_wrap');
   wrap.innerHTML = '';
   (data||[]).forEach(g => {
@@ -128,9 +136,8 @@ async function consultar() {
   btn.innerHTML = '<span class="material-symbols-outlined spin" style="font-size:18px">sync</span> Consultando...';
 
   try {
-    const res = await fetch('/api/relatorio_estoque', {
+    const res = await apiFetch('/api/relatorio_estoque', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         data_inicio:   iniPeriodo,
         data_fim:      hojeStr,
