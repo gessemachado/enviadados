@@ -4,8 +4,8 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Obsidian — Produtos</title>
+<script src="auth.js"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script>
@@ -55,7 +55,7 @@ tailwind.config = {
   </div>
   <nav class="flex-1 px-4">
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="calendario_vendas.html">
-      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Sales Ledger</span>
+      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Diário de Operações</span>
     </a>
     <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="produtos.html">
       <span class="material-symbols-outlined mr-3">bar_chart</span><span>Produtos</span>
@@ -64,10 +64,14 @@ tailwind.config = {
       <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
     </a>
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
-      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Estoque</span>
+      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Projeção de Compras</span>
     </a>
   </nav>
-  <div class="p-4 border-t border-white/5"></div>
+  <div class="p-4 border-t border-white/5">
+    <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-xs">
+      <span class="material-symbols-outlined text-base">logout</span>Sair
+    </button>
+  </div>
 </aside>
 
 <!-- Main -->
@@ -213,9 +217,11 @@ tailwind.config = {
 </main>
 
 <script>
-const SUPABASE_URL = 'https://vfyamghgvabmdimngwev.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmeWFtZ2hndmFibWRpbW5nd2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NDM3NTMsImV4cCI6MjA5MjExOTc1M30.n0z94cx-0Wwn7--wfihYiux5UPK0pUnSHLHpqOrLNnM';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+async function apiFetch(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`API ${url} → ${r.status}`);
+  return r.json();
+}
 
 const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -259,50 +265,24 @@ async function carregarMes() {
   const dtMesAnt  = new Date(anoAtual, mesAtual - 1, 1);
   const strInicioAnt = `${dtMesAnt.getFullYear()}-${String(dtMesAnt.getMonth()+1).padStart(2,'0')}-01`;
 
-  // Busca paginada de saidas (mês anterior + mês atual para ter datas suficientes)
-  const PAGE = 1000;
-  let allData = [], offset = 0;
-  while (true) {
-    const { data: page, error } = await sb
-      .from('saidas')
-      .select('id_produto, codigo, descricao, quantidade_vendida, sub_total, data_venda')
-      .gte('data_venda', strInicioAnt)
-      .lte('data_venda', strFim)
-      .eq('operacao', 'V')
-      .gt('quantidade_vendida', 0)
-      .range(offset, offset + PAGE - 1);
-    if (error || !page?.length) break;
-    allData = allData.concat(page);
-    if (page.length < PAGE) break;
-    offset += PAGE;
-  }
+  // Busca saidas (mês anterior + mês atual) + cadastros em paralelo
+  const [allData, prods, estoques] = await Promise.all([
+    apiFetch(`/api/saidas?inicio=${strInicioAnt}&fim=${strFim}`).catch(() => []),
+    apiFetch('/api/produtos').catch(() => []),
+    apiFetch('/api/estoque').catch(() => []),
+  ]);
 
   // Separa dados do mês atual (para totais) dos dados completos (para intervalo)
-  const allDataMes = allData.filter(r => r.data_venda >= strInicio);
+  const allDataMes = allData.filter(r => (r.data_venda || '').slice(0, 10) >= strInicio);
 
-  // Busca grupos de todos os produtos (paginado)
+  // Monta mapas de grupo e estoque
   const grupoMap = {};
-  let poff = 0;
-  while (true) {
-    const { data: prods } = await sb.from('produtos').select('id_produto, grupo').range(poff, poff + 999);
-    if (!prods?.length) break;
-    prods.forEach(p => { grupoMap[p.id_produto] = p.grupo || ''; });
-    if (prods.length < 1000) break;
-    poff += 1000;
-  }
+  prods.forEach(p => { grupoMap[p.id_produto] = p.grupo || ''; });
 
-  // Busca estoque atual (soma todas as lojas por produto)
   const estoqueMap = {};
-  let eoff = 0;
-  while (true) {
-    const { data: estoques } = await sb.from('estoque').select('id_produto, estoque').range(eoff, eoff + 999);
-    if (!estoques?.length) break;
-    estoques.forEach(e => {
-      estoqueMap[e.id_produto] = (estoqueMap[e.id_produto] || 0) + parseFloat(e.estoque || 0);
-    });
-    if (estoques.length < 1000) break;
-    eoff += 1000;
-  }
+  estoques.forEach(e => {
+    estoqueMap[e.id_produto] = (estoqueMap[e.id_produto] || 0) + parseFloat(e.estoque || 0);
+  });
 
   // Coleta todas as datas de venda por produto (2 meses)
   const datasMap = {};
@@ -577,6 +557,11 @@ function toggleSidebar() {
   const open = !s.classList.contains('-translate-x-full');
   s.classList.toggle('-translate-x-full', open);
   o.classList.toggle('hidden', open);
+}
+
+function logout() {
+  localStorage.removeItem('obs_session');
+  window.location.href = 'login.html';
 }
 </script>
 </body>

@@ -4,8 +4,8 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Obsidian — Financeiro</title>
+<script src="auth.js"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -56,7 +56,7 @@ tailwind.config = {
   </div>
   <nav class="flex-1 px-4">
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="calendario_vendas.html">
-      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Sales Ledger</span>
+      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Diário de Operações</span>
     </a>
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="produtos.html">
       <span class="material-symbols-outlined mr-3">bar_chart</span><span>Produtos</span>
@@ -65,10 +65,14 @@ tailwind.config = {
       <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
     </a>
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
-      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Estoque</span>
+      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Projeção de Compras</span>
     </a>
   </nav>
-  <div class="p-4 border-t border-white/5"></div>
+  <div class="p-4 border-t border-white/5">
+    <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-xs">
+      <span class="material-symbols-outlined text-base">logout</span>Sair
+    </button>
+  </div>
 </aside>
 
 <!-- Main -->
@@ -237,9 +241,11 @@ tailwind.config = {
 </main>
 
 <script>
-const SUPABASE_URL = 'https://vfyamghgvabmdimngwev.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmeWFtZ2hndmFibWRpbW5nd2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NDM3NTMsImV4cCI6MjA5MjExOTc1M30.n0z94cx-0Wwn7--wfihYiux5UPK0pUnSHLHpqOrLNnM';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+async function apiFetch(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`API ${url} → ${r.status}`);
+  return r.json();
+}
 
 const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -259,6 +265,10 @@ let ordemVendAsc   = false;
 
 function brl(v) {
   return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+
+function abrevNome(nome) {
+  return (nome || '').split(' ')[0].substring(0, 2).toUpperCase();
 }
 
 function mudarMes(delta) {
@@ -284,28 +294,14 @@ async function carregarMes() {
   const strInicio = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
   const strFim    = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoAtual, mesAtual+1, 0).getDate()}`;
 
-  // Busca saidas paginada
-  const PAGE = 1000;
-  let allData = [], offset = 0;
-  while (true) {
-    const { data: page, error } = await sb
-      .from('saidas')
-      .select('id_plano, id_vendedor, sub_total, quantidade_vendida')
-      .gte('data_venda', strInicio)
-      .lte('data_venda', strFim)
-      .eq('operacao', 'V')
-      .gt('quantidade_vendida', 0)
-      .range(offset, offset + PAGE - 1);
-    if (error || !page?.length) break;
-    allData = allData.concat(page);
-    if (page.length < PAGE) break;
-    offset += PAGE;
-  }
+  const [allData, planos] = await Promise.all([
+    apiFetch(`/api/saidas?inicio=${strInicio}&fim=${strFim}`).catch(() => []),
+    apiFetch('/api/plano_venda').catch(() => []),
+  ]);
 
-  // Busca descrições dos planos
+  // Monta mapa de planos
   const planoMap = {};
-  const { data: planos } = await sb.from('plano_venda').select('id_plano, descricao');
-  (planos || []).forEach(p => { planoMap[p.id_plano] = p.descricao || `Plano ${p.id_plano}`; });
+  planos.forEach(p => { planoMap[p.id_plano] = p.descricao || `Plano ${p.id_plano}`; });
 
   // Agrega por plano
   const porPlano = {};
@@ -343,8 +339,8 @@ async function carregarMes() {
 
   // Busca nomes dos vendedores
   const vendMap = {};
-  const { data: vends } = await sb.from('vendedores').select('id_vendedor, apelido, nome');
-  (vends || []).forEach(v => { vendMap[v.id_vendedor] = v.nome || `Vendedor ${v.id_vendedor}`; });
+  const vends = await apiFetch('/api/vendedores').catch(() => []);
+  vends.forEach(v => { vendMap[v.id_vendedor] = v.nome || `Vendedor ${v.id_vendedor}`; });
 
   // Agrega por vendedor
   const porVend = {};
@@ -536,7 +532,7 @@ function renderPaginacaoBtns(containerId, pagAtual, nPaginas, onPage) {
 
 function renderGraficoVend() {
   const sorted = [...dadosVendedores].sort((a,b) => b.total - a.total);
-  const labels = sorted.map(v => v.nome);
+  const labels = sorted.map(v => abrevNome(v.nome));
   const valores = sorted.map(v => v.total);
 
   document.getElementById('chart_vend_status').classList.add('hidden');
@@ -567,8 +563,8 @@ function renderGraficoVend() {
           callbacks: {
             label: ctx => brl(ctx.parsed.y),
             afterLabel: ctx => {
-              const v = dadosVendedores.find(d => d.nome === ctx.label);
-              return v ? `${v.qtd.toLocaleString('pt-BR')} vendas · ${v.pct.toFixed(1)}%` : '';
+              const v = sorted[ctx.dataIndex];
+              return v ? `${v.nome}  ·  ${v.qtd.toLocaleString('pt-BR')} vendas · ${v.pct.toFixed(1)}%` : '';
             }
           }
         }
@@ -613,7 +609,7 @@ function renderTabelaVend() {
     tr.className = (i%2===0 ? 'bg-surface-container-low/20' : '') +
       ' border-b border-white/5 hover:bg-surface-container transition-colors';
     tr.innerHTML = `
-      <td class="px-4 py-3 text-gray-200 font-medium">${v.nome}</td>
+      <td class="px-4 py-3 text-gray-200 font-medium">${abrevNome(v.nome)}</td>
       <td class="px-4 py-3 text-right text-gray-300">${v.qtd.toLocaleString('pt-BR')}</td>
       <td class="px-4 py-3 text-right font-semibold text-white">${brl(v.total)}</td>
       <td class="px-4 py-3 text-right">
@@ -652,6 +648,11 @@ function toggleSidebar() {
 
 setPlPagina(10);
 carregarMes();
+
+function logout() {
+  localStorage.removeItem('obs_session');
+  window.location.href = 'login.html';
+}
 </script>
 </body>
 </html>

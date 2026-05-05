@@ -7,7 +7,7 @@ _TABELAS = {
                 ID_SAIDA, ID_PRODUTO, CODIGO, DESCRICAO,
                 NUMERO_CUPOM, NOTA_FISCAL, DATA_VENDA,
                 QUANTIDADE_VENDIDA, PRECO_VENDA, SUB_TOTAL, DESCONTO,
-                ID_CLIENTE, ID_VENDEDOR, ID_LOJA,
+                ID_CLIENTE, ID_VENDEDOR, ID_PLANO, ID_LOJA,
                 OPERACAO, DATA_MANUTENCAO
             FROM SAIDAS
             WHERE DATA_MANUTENCAO >= ?
@@ -123,6 +123,16 @@ _TABELAS = {
         """,
         'delta_campo': 'DATA_ATUALIZACAO',
         'delta_padrao': '2000-01-01 00:00:00',
+    },
+    # Ajuste o nome da tabela se no seu Firebird for diferente (ex: FORMA_PAGAMENTO)
+    'plano_venda': {
+        'query': """
+            SELECT ID_PLANO, DESCRICAO
+            FROM PLANO_VENDA
+            ORDER BY ID_PLANO
+        """,
+        'delta_campo': None,
+        'delta_padrao': None,
     },
 }
 

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Obsidian — Diário</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#131312"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="stylesheet" href="obsidian.css"/>
+<style>
+.meta-row { display: flex; flex-direction: column; gap: .5rem; padding: 0 .875rem .875rem; }
+.meta-card { background: var(--s-low); border: 1px solid var(--outline); border-radius: var(--r-lg); padding: .75rem .875rem; }
+.meta-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+.meta-head-left { flex: 1; min-width: 0; }
+.meta-title { font-size: .6rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-off); margin-bottom: .2rem; }
+.meta-val   { font-family: 'Manrope', sans-serif; font-size: 1.15rem; font-weight: 800; color: var(--text); line-height: 1; }
+.meta-inputs { display: flex; gap: .375rem; align-items: center; flex-shrink: 0; }
+.meta-inp-lbl { font-size: .52rem; color: var(--text-off); text-transform: uppercase; white-space: nowrap; }
+.meta-inp { background: var(--s-top); border: 1px solid var(--outline); border-radius: .375rem; color: var(--text); font-size: .7rem; padding: .2rem .375rem; width: 44px; text-align: center; outline: none; }
+.meta-inp:focus { border-color: rgba(255,102,0,.5); }
+.meta-pair { display: flex; gap: .375rem; margin-bottom: .5rem; }
+.meta-box { flex: 1; background: var(--s-high); border-radius: .375rem; padding: .375rem .5rem; min-width: 0; }
+.meta-box__lbl { font-size: .55rem; color: var(--text-off); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta-box__val { font-family: 'Manrope', sans-serif; font-size: .8rem; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta-pct { font-size: .65rem; font-weight: 700; color: var(--text-off); margin-top: .25rem; }
+.meta-pct--ok { color: #4ade80; }
+.meta-pct--warn { color: #facc15; }
+</style>
+</head>
+<body class="page">
+
+<!-- Top Bar -->
+<header class="topbar">
+  <button class="icon-btn" onclick="logout()"><span class="material-symbols-outlined" style="font-size:22px">logout</span></button>
+  <span class="topbar__title">Diário de Operações</span>
+  <div class="topbar__nav">
+    <button onclick="mudarMes(-1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_left</span></button>
+    <span class="topbar__month" id="mes_label">—</span>
+    <button onclick="mudarMes(1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
+  </div>
+</header>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="label">Hoje</div>
+    <div class="kpi-val t-head" id="k_hoje">—</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">Média Diária</div>
+    <div class="kpi-val t-head" id="k_media">—</div>
+    <div class="kpi-sub" id="k_media_sub">—</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">Ticket Médio</div>
+    <div class="kpi-val t-head" id="k_ticket">—</div>
+    <div class="kpi-sub" id="k_ticket_sub">—</div>
+  </div>
+  <div class="kpi-card kpi-card--accent">
+    <div class="label">Total do Mês</div>
+    <div class="kpi-val kpi-val--accent t-head" id="k_total">—</div>
+  </div>
+</div>
+
+<!-- Meta Cards -->
+<div class="meta-row">
+  <!-- Meta do Mês -->
+  <div class="meta-card">
+    <div class="meta-head">
+      <div class="meta-head-left">
+        <div class="meta-title">Meta do Mês</div>
+        <div class="meta-val" id="m_val">—</div>
+      </div>
+      <div class="meta-inputs">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.1rem">
+          <span class="meta-inp-lbl">IPCA%</span>
+          <input id="inp_ipca" type="number" class="meta-inp" value="4.25" step="0.25" oninput="calc()"/>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:.1rem">
+          <span class="meta-inp-lbl">Cresc%</span>
+          <input id="inp_cresc" type="number" class="meta-inp" value="5" step="0.5" oninput="calc()"/>
+        </div>
+      </div>
+    </div>
+    <div class="meta-pair">
+      <div class="meta-box"><div class="meta-box__lbl" id="m_base_lbl">Ano ant.</div><div class="meta-box__val" id="m_base_val">—</div></div>
+      <div class="meta-box"><div class="meta-box__lbl">Mês atual</div><div class="meta-box__val" id="m_atual_val">—</div></div>
+    </div>
+    <div class="prog-track" style="margin-bottom:.25rem"><div class="prog-fill" id="m_prog" style="width:0%"></div></div>
+    <div class="meta-pct" id="m_pct">—</div>
+  </div>
+  <!-- Meta Anual -->
+  <div class="meta-card">
+    <div class="meta-head">
+      <div class="meta-head-left">
+        <div class="meta-title">Meta Anual <span id="anual_ano" style="font-weight:400"></span></div>
+        <div class="meta-val" id="ma_val">—</div>
+      </div>
+    </div>
+    <div class="meta-pair">
+      <div class="meta-box"><div class="meta-box__lbl" id="ma_base_lbl">Total ant.</div><div class="meta-box__val" id="ma_base_val">—</div></div>
+      <div class="meta-box"><div class="meta-box__lbl" id="ma_atual_lbl">YTD</div><div class="meta-box__val" id="ma_atual_val">—</div></div>
+    </div>
+    <div class="prog-track" style="margin-bottom:.25rem"><div class="prog-fill" id="ma_prog" style="width:0%"></div></div>
+    <div class="meta-pct" id="ma_pct">—</div>
+  </div>
+</div>
+
+<!-- Calendar -->
+<div class="cal-head">
+  <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span>
+</div>
+<div class="cal-grid" id="cal_grid"></div>
+
+<!-- Bottom Nav -->
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">calendar_month</span><span>Diário</span></a>
+  <a href="produtos.html" class="nav-item"><span class="material-symbols-outlined">bar_chart</span><span>Produtos</span></a>
+  <a href="financeiro.html" class="nav-item"><span class="material-symbols-outlined">payments</span><span>Financeiro</span></a>
+  <a href="projecao.html" class="nav-item"><span class="material-symbols-outlined">warehouse</span><span>Projeção</span></a>
+</nav>
+
+<script>
+if (!localStorage.getItem('obs_session')) location.href = 'login.html';
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MESES3 = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const hoje = new Date();
+const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+
+let anoAtual = hoje.getFullYear(), mesAtual = hoje.getMonth();
+let _totalMes = 0, _baseMes = null, _baseAnual = null, _totalAnual = 0, _metaCalc = 0;
+
+function logout() { localStorage.removeItem('obs_session'); location.href = 'login.html'; }
+
+async function apiFetch(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function carregarMes() {
+  document.getElementById('mes_label').textContent = MESES3[mesAtual] + ' ' + anoAtual;
+  const ini = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const fim = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoAtual,mesAtual+1,0).getDate()}`;
+
+  const data = await apiFetch(`/api/saidas?inicio=${ini}&fim=${fim}`);
+  const porDia = {};
+  data.forEach(r => { const d = (r.data_venda||'').split('T')[0]; porDia[d] = (porDia[d]||0) + parseFloat(r.sub_total||0); });
+
+  const dias = Object.keys(porDia).filter(d => porDia[d] > 0);
+  const total = Object.values(porDia).reduce((a,b)=>a+b,0);
+  const media = dias.length ? total/dias.length : 0;
+  const hoje_v = porDia[hojeStr] || 0;
+  const ticket = data.length ? total/data.length : 0;
+  _totalMes = total;
+
+  document.getElementById('k_hoje').textContent   = brl(hoje_v);
+  document.getElementById('k_media').textContent  = brl(media);
+  document.getElementById('k_media_sub').textContent = `${dias.length} dias com vendas`;
+  document.getElementById('k_ticket').textContent = brl(ticket);
+  document.getElementById('k_ticket_sub').textContent = `${data.length.toLocaleString('pt-BR')} transações`;
+  document.getElementById('k_total').textContent  = brl(total);
+  document.getElementById('m_atual_val').textContent = brl(total);
+
+  // base do mesmo mês no ano anterior
+  const anoB = anoAtual - 1;
+  const iniB = `${anoB}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const fimB = `${anoB}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoB,mesAtual+1,0).getDate()}`;
+  const dataB = await apiFetch(`/api/saidas?inicio=${iniB}&fim=${fimB}`);
+  _baseMes = dataB.reduce((a,r)=>a+parseFloat(r.sub_total||0),0);
+  document.getElementById('m_base_lbl').textContent = `${MESES3[mesAtual]}/${anoB}`;
+  document.getElementById('m_base_val').textContent = brl(_baseMes);
+
+  calc();
+  renderCal(porDia, new Date(anoAtual,mesAtual+1,0).getDate());
+}
+
+async function carregarAnual() {
+  const anoB = anoAtual - 1;
+  document.getElementById('anual_ano').textContent = anoAtual;
+  document.getElementById('ma_base_lbl').textContent = `Total ${anoB}`;
+  document.getElementById('ma_atual_lbl').textContent = `${anoAtual} acum.`;
+
+  const dB = await apiFetch(`/api/saidas?inicio=${anoB}-01-01&fim=${anoB}-12-31`);
+  _baseAnual = dB.reduce((a,r)=>a+parseFloat(r.sub_total||0),0);
+  document.getElementById('ma_base_val').textContent = brl(_baseAnual);
+
+  const dA = await apiFetch(`/api/saidas?inicio=${anoAtual}-01-01&fim=${hojeStr}`);
+  _totalAnual = dA.reduce((a,r)=>a+parseFloat(r.sub_total||0),0);
+  document.getElementById('ma_atual_val').textContent = brl(_totalAnual);
+  calcAnual();
+}
+
+function calc() {
+  if (_baseMes === null) return;
+  const ipca  = (parseFloat(document.getElementById('inp_ipca').value)||0)/100;
+  const cresc = (parseFloat(document.getElementById('inp_cresc').value)||0)/100;
+  const meta  = _baseMes * (1+ipca) * (1+cresc);
+  _metaCalc = meta;
+  document.getElementById('m_val').textContent = brl(meta);
+  const pct = meta > 0 ? (_totalMes/meta*100) : 0;
+  document.getElementById('m_prog').style.width = Math.min(pct,100)+'%';
+  const el = document.getElementById('m_pct');
+  el.textContent = pct.toFixed(1)+'% da meta';
+  el.className = 'meta-pct' + (pct>=100?' meta-pct--ok':pct>=70?' meta-pct--warn':'');
+  calcAnual();
+}
+
+function calcAnual() {
+  if (_baseAnual === null) return;
+  const ipca  = (parseFloat(document.getElementById('inp_ipca').value)||0)/100;
+  const cresc = (parseFloat(document.getElementById('inp_cresc').value)||0)/100;
+  const meta  = _baseAnual * (1+ipca) * (1+cresc);
+  document.getElementById('ma_val').textContent = brl(meta);
+  const pct = meta > 0 ? (_totalAnual/meta*100) : 0;
+  document.getElementById('ma_prog').style.width = Math.min(pct,100)+'%';
+  const el = document.getElementById('ma_pct');
+  el.textContent = pct.toFixed(1)+'% da meta';
+  el.className = 'meta-pct' + (pct>=100?' meta-pct--ok':pct>=70?' meta-pct--warn':'');
+}
+
+function mudarMes(d) {
+  mesAtual += d;
+  if (mesAtual > 11) { mesAtual = 0; anoAtual++; }
+  if (mesAtual < 0)  { mesAtual = 11; anoAtual--; }
+  carregarMes();
+}
+
+function renderCal(porDia, totalDias) {
+  const grid = document.getElementById('cal_grid');
+  grid.innerHTML = '';
+  const primeiro = new Date(anoAtual, mesAtual, 1).getDay();
+
+  for (let i = 0; i < primeiro + totalDias; i++) {
+    const cel = document.createElement('div');
+    if (i < primeiro) {
+      cel.className = 'cal-day cal-day--other';
+      cel.innerHTML = `<span class="cal-day__num">${new Date(anoAtual,mesAtual,0).getDate()-primeiro+i+1}</span>`;
+      grid.appendChild(cel); continue;
+    }
+    const dia = i - primeiro + 1;
+    const ds  = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+    const val = porDia[ds] || 0;
+    const isHoje   = ds === hojeStr;
+    const isFuturo = new Date(ds) > hoje;
+    cel.className = 'cal-day' + (isHoje?' cal-day--today':isFuturo?' cal-day--future':'');
+    cel.innerHTML = `
+      ${isHoje ? '<span class="cal-day__badge">Hoje</span>' : ''}
+      <span class="cal-day__num${isHoje?' cal-day__num--today':''}">${dia}</span>
+      <span class="cal-day__val">${val>0 ? brl(val).replace('R$\u00a0','').replace(',00','') : isFuturo?'':'—'}</span>`;
+    grid.appendChild(cel);
+  }
+}
+
+carregarMes();
+carregarAnual();
+</script>
+</body>
+</html>

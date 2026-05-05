@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Obsidian — Financeiro</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#131312"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="stylesheet" href="obsidian.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+.chart-wrap { padding: 0 .875rem .5rem; height: 160px; }
+</style>
+</head>
+<body class="page">
+
+<header class="topbar">
+  <button class="icon-btn" onclick="logout()"><span class="material-symbols-outlined" style="font-size:22px">logout</span></button>
+  <span class="topbar__title">Financeiro</span>
+  <div class="topbar__nav">
+    <button onclick="mudarMes(-1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_left</span></button>
+    <span class="topbar__month" id="mes_label">—</span>
+    <button onclick="mudarMes(1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
+  </div>
+</header>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi-card kpi-card--accent">
+    <div class="label">Total Faturado</div>
+    <div class="kpi-val kpi-val--accent t-head" id="k_fat">—</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">Qtd Transações</div>
+    <div class="kpi-val t-head" id="k_qtd">—</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">Ticket Médio</div>
+    <div class="kpi-val t-head" id="k_ticket">—</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">Plano Principal</div>
+    <div class="kpi-val t-head" style="font-size:.85rem" id="k_plano">—</div>
+  </div>
+</div>
+
+<!-- Por Plano -->
+<div class="section-head">
+  <span class="section-title">Faturamento por Plano</span>
+</div>
+<div class="chart-wrap"><canvas id="chart_plano"></canvas></div>
+<div class="scroll-x" style="padding:0 .875rem .875rem">
+  <table class="tbl" id="tbl_plano">
+    <thead><tr><th>Plano</th><th>Qtd</th><th>Total</th><th>%</th></tr></thead>
+    <tbody id="tbody_plano"><tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Carregando...</td></tr></tbody>
+  </table>
+  <div class="pag" id="pag_plano"></div>
+</div>
+
+<!-- Por Vendedor -->
+<div class="section-head">
+  <span class="section-title">Faturamento por Vendedor</span>
+</div>
+<div class="chart-wrap"><canvas id="chart_vend"></canvas></div>
+<div class="scroll-x" style="padding:0 .875rem 1rem">
+  <table class="tbl" id="tbl_vend">
+    <thead><tr><th>Vendedor</th><th>Qtd</th><th>Total</th><th>%</th></tr></thead>
+    <tbody id="tbody_vend"><tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Carregando...</td></tr></tbody>
+  </table>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diário</span></a>
+  <a href="produtos.html" class="nav-item"><span class="material-symbols-outlined">bar_chart</span><span>Produtos</span></a>
+  <a href="financeiro.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">payments</span><span>Financeiro</span></a>
+  <a href="projecao.html" class="nav-item"><span class="material-symbols-outlined">warehouse</span><span>Projeção</span></a>
+</nav>
+
+<script>
+if (!localStorage.getItem('obs_session')) location.href = 'login.html';
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+const MESES3 = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const abrevNome = nome => (nome || '').split(' ')[0].substring(0, 2).toUpperCase();
+const hoje = new Date();
+let anoAtual = hoje.getFullYear(), mesAtual = hoje.getMonth();
+let chartP = null, chartV = null;
+
+function logout() { localStorage.removeItem('obs_session'); location.href = 'login.html'; }
+
+async function apiFetch(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function carregar() {
+  document.getElementById('mes_label').textContent = MESES3[mesAtual]+' '+anoAtual;
+  const ini = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const fim = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoAtual,mesAtual+1,0).getDate()}`;
+
+  const [saidas, planos, vendedores] = await Promise.all([
+    apiFetch(`/api/saidas?inicio=${ini}&fim=${fim}`),
+    apiFetch('/api/plano_venda'),
+    apiFetch('/api/vendedores'),
+  ]);
+
+  const planoMap = {}; planos.forEach(p => planoMap[p.id_plano] = p.descricao);
+  const vendMap  = {}; vendedores.forEach(v => vendMap[v.id_vendedor] = v.nome);
+
+  const total = saidas.reduce((a,r)=>a+parseFloat(r.sub_total||0),0);
+  document.getElementById('k_fat').textContent    = brl(total);
+  document.getElementById('k_qtd').textContent    = saidas.length.toLocaleString('pt-BR');
+  document.getElementById('k_ticket').textContent = brl(saidas.length ? total/saidas.length : 0);
+
+  // Por plano
+  const byPlano = {};
+  saidas.forEach(r => {
+    const k = planoMap[r.id_plano] || `Plano ${r.id_plano||'—'}`;
+    if (!byPlano[k]) byPlano[k] = {qtd:0,total:0};
+    byPlano[k].qtd++; byPlano[k].total += parseFloat(r.sub_total||0);
+  });
+  const planoArr = Object.entries(byPlano).sort((a,b)=>b[1].total-a[1].total);
+  document.getElementById('k_plano').textContent = planoArr[0]?.[0] || '—';
+
+  renderChart('chart_plano', planoArr.slice(0,8), '#ff6600', chartP, c => chartP = c);
+  renderTbl('tbody_plano', planoArr, total);
+
+  // Por vendedor
+  const byVend = {};
+  saidas.forEach(r => {
+    const k = vendMap[r.id_vendedor] || `Vend ${r.id_vendedor||'—'}`;
+    if (!byVend[k]) byVend[k] = {qtd:0,total:0};
+    byVend[k].qtd++; byVend[k].total += parseFloat(r.sub_total||0);
+  });
+  const vendArr = Object.entries(byVend).sort((a,b)=>b[1].total-a[1].total);
+  renderChart('chart_vend', vendArr.slice(0,8).map(([k,v])=>[abrevNome(k),v]), '#9ccaff', chartV, c => chartV = c);
+  renderTbl('tbody_vend', vendArr.map(([k,v])=>[abrevNome(k),v]), total);
+}
+
+function renderChart(id, arr, color, old, setter) {
+  const ctx = document.getElementById(id).getContext('2d');
+  if (old) old.destroy();
+  setter(new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: arr.map(([k])=>k.length>14?k.substring(0,13)+'…':k),
+      datasets: [{ data: arr.map(([,v])=>v.total), backgroundColor: color+'99', borderColor: color, borderWidth: 1, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#888683', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+        y: { ticks: { color: '#888683', font: { size: 9 }, callback: v => 'R$'+Math.round(v/1000)+'k' }, grid: { color: 'rgba(255,255,255,.04)' } }
+      }
+    }
+  }));
+}
+
+function renderTbl(tbodyId, arr, total) {
+  const tb = document.getElementById(tbodyId);
+  tb.innerHTML = arr.map(([k,v])=>`
+    <tr>
+      <td>${k}</td>
+      <td class="dim">${v.qtd}</td>
+      <td class="accent">${brl(v.total)}</td>
+      <td class="dim">${total>0?(v.total/total*100).toFixed(1):0}%</td>
+    </tr>`).join('');
+}
+
+function mudarMes(d) {
+  mesAtual += d;
+  if (mesAtual>11){mesAtual=0;anoAtual++;} if(mesAtual<0){mesAtual=11;anoAtual--;}
+  carregar();
+}
+carregar();
+</script>
+</body>
+</html>

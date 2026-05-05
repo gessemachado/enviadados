@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Obsidian — Estoque</title>
+<title>Obsidian — Projeção de Compras</title>
+<script src="auth.js"></script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
@@ -69,7 +69,7 @@ tailwind.config = {
   </div>
   <nav class="flex-1 px-4">
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="calendario_vendas.html">
-      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Sales Ledger</span>
+      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Diário de Operações</span>
     </a>
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="produtos.html">
       <span class="material-symbols-outlined mr-3">bar_chart</span><span>Produtos</span>
@@ -78,10 +78,14 @@ tailwind.config = {
       <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
     </a>
     <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="relatorio_estoque.html">
-      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Estoque</span>
+      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Projeção de Compras</span>
     </a>
   </nav>
-  <div class="p-4 border-t border-white/5"></div>
+  <div class="p-4 border-t border-white/5">
+    <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-xs">
+      <span class="material-symbols-outlined text-base">logout</span>Sair
+    </button>
+  </div>
 </aside>
 
 <!-- Overlay mobile -->
@@ -97,7 +101,7 @@ tailwind.config = {
         <span class="material-symbols-outlined text-gray-400">menu</span>
       </button>
     <div>
-      <h2 class="text-lg font-black text-white font-['Manrope']">Estoque — Projeção de Compras</h2>
+      <h2 class="text-lg font-black text-white font-['Manrope']">Projeção de Compras</h2>
       <p class="text-xs text-gray-500 mt-0.5">Análise dos últimos 12 meses · <span id="label_periodo" class="text-gray-400"></span></p>
     </div>
     </div>
@@ -115,7 +119,7 @@ tailwind.config = {
 
   <!-- Print title -->
   <div class="print-title p-4">
-    <h1 class="text-lg font-bold">Análise de Estoque — Projeção de Compras</h1>
+    <h1 class="text-lg font-bold">Análise de Projeção de Compras</h1>
     <p id="print_info" class="text-sm text-gray-600 mt-1"></p>
   </div>
 
@@ -140,8 +144,7 @@ tailwind.config = {
             <button onclick="selecionarTodos(false)" class="text-[#FF6600] hover:underline">Nenhum</button>
           </div>
         </div>
-        <div id="grupos_container"
-          class="flex flex-wrap gap-1.5 bg-surface-container border border-white/10 rounded-lg p-3 min-h-10 max-h-28 overflow-y-auto">
+        <div id="grupos_container" class="flex flex-wrap gap-1.5">
           <span class="text-gray-600 text-xs italic">Carregando...</span>
         </div>
       </div>
@@ -192,9 +195,11 @@ tailwind.config = {
 </main>
 
 <script>
-const SUPABASE_URL = 'https://vfyamghgvabmdimngwev.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmeWFtZ2hndmFibWRpbW5nd2V2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1NDM3NTMsImV4cCI6MjA5MjExOTc1M30.n0z94cx-0Wwn7--wfihYiux5UPK0pUnSHLHpqOrLNnM';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+async function apiFetch(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(`API ${url} → ${r.status}`);
+  return r.json();
+}
 
 const hoje       = new Date();
 const umAnoAtras = new Date(hoje);
@@ -207,29 +212,54 @@ document.getElementById('label_periodo').textContent = `${fmtBR(dataInicio)} at�
 let dadosAtuais = [];
 
 async function carregarGrupos() {
-  const { data, error } = await sb.from('grupo').select('id_grupo, grupo').order('id_grupo');
   const container = document.getElementById('grupos_container');
-  if (error || !data?.length) {
+  let data;
+  try {
+    data = await apiFetch('/api/grupos');
+  } catch(e) {
     container.innerHTML = '<span class="text-red-500 text-xs">Erro ao carregar grupos.</span>';
+    return;
+  }
+  if (!data?.length) {
+    container.innerHTML = '<span class="text-red-500 text-xs">Nenhum grupo encontrado.</span>';
     return;
   }
   container.innerHTML = '';
   data.forEach(g => {
-    const label = document.createElement('label');
-    label.className = 'flex items-center gap-1.5 cursor-pointer bg-surface-container-high border border-white/10 rounded px-2 py-1 hover:border-[#FF6600]/50 text-[10px] select-none transition-colors';
-    label.innerHTML = `<input type="checkbox" value="${g.id_grupo}" class="grupo-cb accent-orange-500" checked>
-      <span class="font-semibold text-gray-300">${g.id_grupo}</span>
-      <span class="text-gray-500">— ${g.grupo}</span>`;
-    container.appendChild(label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.id = g.id_grupo;
+    btn.dataset.selected = 'false';
+    btn.className = 'grupo-pill px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all select-none cursor-pointer bg-surface-container border-white/10 text-gray-500';
+    btn.textContent = `${g.id_grupo} — ${g.grupo}`;
+    btn.onclick = () => toggleGrupo(btn);
+    container.appendChild(btn);
   });
 }
 
+function toggleGrupo(btn) {
+  const sel = btn.dataset.selected === 'true';
+  btn.dataset.selected = sel ? 'false' : 'true';
+  if (!sel) {
+    btn.className = 'grupo-pill px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all select-none cursor-pointer bg-[#FF6600]/15 border-[#FF6600]/50 text-[#FF6600]';
+  } else {
+    btn.className = 'grupo-pill px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all select-none cursor-pointer bg-surface-container border-white/10 text-gray-500';
+  }
+}
+
 function selecionarTodos(val) {
-  document.querySelectorAll('.grupo-cb').forEach(cb => cb.checked = val);
+  document.querySelectorAll('.grupo-pill').forEach(btn => {
+    btn.dataset.selected = val ? 'true' : 'false';
+    if (val) {
+      btn.className = 'grupo-pill px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all select-none cursor-pointer bg-[#FF6600]/15 border-[#FF6600]/50 text-[#FF6600]';
+    } else {
+      btn.className = 'grupo-pill px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all select-none cursor-pointer bg-surface-container border-white/10 text-gray-500';
+    }
+  });
 }
 
 async function executarConsulta() {
-  const grupos = [...document.querySelectorAll('.grupo-cb:checked')].map(cb => parseInt(cb.value));
+  const grupos = [...document.querySelectorAll('.grupo-pill[data-selected="true"]')].map(b => parseInt(b.dataset.id));
   if (!grupos.length) { alert('Selecione pelo menos um grupo.'); return; }
 
   const icon = document.getElementById('icon_buscar');
@@ -250,14 +280,33 @@ async function executarConsulta() {
   document.getElementById('btn_pdf').classList.add('hidden');
   document.getElementById('total_registros').textContent = '';
 
-  const { data, error } = await sb.rpc('relatorio_estoque_projecao', params);
+  let data;
+  try {
+    data = await apiFetch('/api/relatorio_estoque', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data_inicio:   params.p_data_inicio,
+        data_fim:      params.p_data_fim,
+        grupos:        params.p_grupos,
+        id_loja:       params.p_id_loja,
+        diferenca_max: params.p_diferenca_max,
+      }),
+    });
+  } catch(e) {
+    icon.textContent = 'search';
+    icon.classList.remove('animate-spin');
+    setStatus('Erro ao consultar: ' + e.message);
+    return;
+  }
 
   icon.textContent = 'search';
   icon.classList.remove('animate-spin');
 
-  if (error) { setStatus('Erro: ' + error.message); return; }
-
-  dadosAtuais = data || [];
+  dadosAtuais = (data || []).sort((a, b) => {
+    if (a.id_grupo !== b.id_grupo) return a.id_grupo - b.id_grupo;
+    return parseFloat(a.diferenca ?? 0) - parseFloat(b.diferenca ?? 0);
+  });
   if (!dadosAtuais.length) { setStatus('Nenhum produto encontrado com esses filtros.'); return; }
 
   renderTabela(dadosAtuais, params);
@@ -347,13 +396,13 @@ function exportarExcel() {
     'Méd Dia':       parseFloat(r.med_dia) || 0,
     'Est Segurança': parseFloat(r.est_de_segur) || 0,
     'Est Máximo':    parseFloat(r.est_maxi) || 0,
-    'Estoque Atual': parseFloat(r.estoque_atual) || 0,
+    'Projeção de Compras Atual': parseFloat(r.estoque_atual) || 0,
     'Diferença':     parseFloat(r.diferenca) || 0,
   }));
   const ws = XLSX.utils.json_to_sheet(linhas);
   ws['!cols'] = [{wch:20},{wch:12},{wch:40},{wch:5},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12},{wch:12},{wch:14},{wch:12}];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Estoque');
+  XLSX.utils.book_append_sheet(wb, ws, 'Projeção de Compras');
   XLSX.writeFile(wb, `estoque_projecao_${dataInicio}_${dataFim}.xlsx`);
 }
 
@@ -368,6 +417,11 @@ function toggleSidebar() {
 }
 
 carregarGrupos();
+
+function logout() {
+  localStorage.removeItem('obs_session');
+  window.location.href = 'login.html';
+}
 </script>
 </body>
 </html>

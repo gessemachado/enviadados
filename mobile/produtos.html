@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Obsidian — Produtos</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#131312"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="stylesheet" href="obsidian.css"/>
+<style>
+.filters { display: flex; gap: .5rem; padding: .625rem .875rem; }
+.filters .inp { flex: 1; }
+.filters select { background: var(--s-top); border: 1px solid var(--outline); border-radius: var(--r); color: var(--text); font-size: .75rem; padding: .375rem .5rem; outline: none; max-width: 130px; }
+</style>
+</head>
+<body class="page">
+
+<header class="topbar">
+  <button class="icon-btn" onclick="logout()"><span class="material-symbols-outlined" style="font-size:22px">logout</span></button>
+  <span class="topbar__title">Produtos</span>
+  <div class="topbar__nav">
+    <button onclick="mudarMes(-1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_left</span></button>
+    <span class="topbar__month" id="mes_label">—</span>
+    <button onclick="mudarMes(1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
+  </div>
+</header>
+
+<!-- Vendas por Grupo -->
+<div class="section-head"><span class="section-title">Vendas por Grupo</span></div>
+<div class="scroll-x" style="padding:0 .875rem .5rem">
+  <table class="tbl">
+    <thead><tr><th>Grupo</th><th>Qtd</th><th>Total</th><th>%</th></tr></thead>
+    <tbody id="tbody_grupo"><tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Carregando...</td></tr></tbody>
+  </table>
+  <div class="pag" id="pag_grupo"></div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+  <input id="busca" class="inp" type="search" placeholder="Buscar produto…" oninput="filtrar()"/>
+  <select id="filtro_grupo" onchange="filtrar()">
+    <option value="">Todos os grupos</option>
+  </select>
+</div>
+
+<!-- Produtos table -->
+<div class="section-head"><span class="section-title">Produtos</span><span id="prod_count" style="font-size:.65rem;color:var(--text-off)"></span></div>
+<div class="scroll-x" style="padding:0 .875rem 1rem">
+  <table class="tbl">
+    <thead><tr><th>Produto</th><th>Qtd</th><th>Total</th><th>Estoque</th><th>Pedidos</th><th>Interv.</th></tr></thead>
+    <tbody id="tbody_prod"><tr><td colspan="6" style="text-align:center;color:var(--text-off);padding:1.5rem">Carregando...</td></tr></tbody>
+  </table>
+  <div class="pag" id="pag_prod"></div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diário</span></a>
+  <a href="produtos.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">bar_chart</span><span>Produtos</span></a>
+  <a href="financeiro.html" class="nav-item"><span class="material-symbols-outlined">payments</span><span>Financeiro</span></a>
+  <a href="projecao.html" class="nav-item"><span class="material-symbols-outlined">warehouse</span><span>Projeção</span></a>
+</nav>
+
+<script>
+if (!localStorage.getItem('obs_session')) location.href = 'login.html';
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+const MESES3 = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const brl = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const hoje = new Date();
+let anoAtual = hoje.getFullYear(), mesAtual = hoje.getMonth();
+let dadosProd = [], dadosGrupo = [], estoqueMap = {};
+let pProd = 1, pGrupo = 1;
+const PPP = 10;
+
+function logout() { localStorage.removeItem('obs_session'); location.href = 'login.html'; }
+
+async function apiFetch(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function carregar() {
+  document.getElementById('mes_label').textContent = MESES3[mesAtual]+' '+anoAtual;
+  const ini = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const fim = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${new Date(anoAtual,mesAtual+1,0).getDate()}`;
+
+  const anoAnt = mesAtual===0?anoAtual-1:anoAtual;
+  const mesAntIdx = mesAtual===0?11:mesAtual-1;
+  const iniAnt = `${anoAnt}-${String(mesAntIdx+1).padStart(2,'0')}-01`;
+
+  try {
+    const [saidas, prodsData, estoqueData] = await Promise.all([
+      apiFetch(`/api/saidas?inicio=${iniAnt}&fim=${fim}`),
+      apiFetch('/api/produtos'),
+      apiFetch('/api/estoque'),
+    ]);
+
+    // mapas de grupo e estoque por id_produto
+    const grupoMap = {}, grupoNomeMap = {};
+    prodsData.forEach(p => { grupoMap[p.id_produto] = p.id_grupo; grupoNomeMap[p.id_produto] = p.grupo||''; });
+    estoqueMap = {};
+    estoqueData.forEach(e => { estoqueMap[e.id_produto] = (estoqueMap[e.id_produto]||0) + parseFloat(e.estoque||0); });
+
+    // grupos dropdown
+    const grupoSet = {};
+    prodsData.forEach(p => { if (p.id_grupo && p.grupo) grupoSet[p.id_grupo] = p.grupo; });
+    const sel = document.getElementById('filtro_grupo');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos os grupos</option>' + Object.entries(grupoSet).sort((a,b)=>a[0]-b[0]).map(([id,g])=>`<option value="${id}">${id} — ${g}</option>`).join('');
+    sel.value = cur;
+
+    const saidisMes = saidas.filter(r => (r.data_venda||'').split('T')[0] >= ini);
+
+    const byProd = {};
+    saidisMes.forEach(r => {
+      const k = r.id_produto;
+      if (!byProd[k]) byProd[k] = { desc: r.descricao||r.codigo, id_grupo: grupoMap[k], grupo: grupoNomeMap[k], qtd:0, total:0, datas:[] };
+      byProd[k].qtd += parseFloat(r.quantidade_vendida||0);
+      byProd[k].total += parseFloat(r.sub_total||0);
+    });
+    saidas.forEach(r => {
+      const k = r.id_produto;
+      const d = (r.data_venda||'').split('T')[0];
+      if (byProd[k] && d && !byProd[k].datas.includes(d)) byProd[k].datas.push(d);
+    });
+
+    dadosProd = Object.entries(byProd).sort((a,b)=>b[1].total-a[1].total).map(([id,v])=>{
+      const datas = v.datas.sort();
+      const interv = datas.length>=2 ? Math.round((new Date(datas[datas.length-1])-new Date(datas[datas.length-2]))/86400000) : null;
+      return { id, desc: v.desc, id_grupo: v.id_grupo, grupo: v.grupo, qtd: v.qtd, total: v.total, estoque: estoqueMap[id]||0, pedidos: v.datas.filter(d=>d>=ini).length, interv };
+    });
+
+    const byGrupo = {};
+    saidisMes.forEach(r => {
+      const gid = grupoMap[r.id_produto];
+      const gnm = grupoNomeMap[r.id_produto];
+      const k = gid ? `${gid} — ${gnm||'Grupo '+gid}` : '—';
+      if (!byGrupo[k]) byGrupo[k] = {qtd:0,total:0};
+      byGrupo[k].qtd += parseFloat(r.quantidade_vendida||0);
+      byGrupo[k].total += parseFloat(r.sub_total||0);
+    });
+    const totalG = Object.values(byGrupo).reduce((a,v)=>a+v.total,0);
+    dadosGrupo = Object.entries(byGrupo).sort((a,b)=>b[1].total-a[1].total).map(([k,v])=>({...v, nome:k, pct:totalG>0?v.total/totalG*100:0}));
+
+    pProd = 1; pGrupo = 1;
+    renderProd(); renderGrupo();
+  } catch(e) {
+    document.getElementById('tbody_prod').innerHTML = `<tr><td colspan="6" style="text-align:center;color:#f87171;padding:1rem">Erro: ${e.message||e}</td></tr>`;
+  }
+}
+
+function filtrar() { pProd = 1; renderProd(); }
+
+function getProdFiltrado() {
+  const busca = document.getElementById('busca').value.toLowerCase();
+  const grupo = document.getElementById('filtro_grupo').value;
+  return dadosProd.filter(r => {
+    const matchB = !busca || r.desc.toLowerCase().includes(busca);
+    const matchG = !grupo || String(r.id_grupo) === grupo;
+    return matchB && matchG;
+  });
+}
+
+function renderProd() {
+  const lista = getProdFiltrado();
+  const total = lista.length;
+  const ini = (pProd-1)*PPP, fim = Math.min(ini+PPP, total);
+  const pg = lista.slice(ini, fim);
+  document.getElementById('prod_count').textContent = `${total} produtos`;
+  document.getElementById('tbody_prod').innerHTML = pg.map(r=>`
+    <tr>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+      <td class="dim">${Math.round(r.qtd)}</td>
+      <td class="accent">${brl(r.total)}</td>
+      <td class="dim">${r.estoque%1===0?r.estoque:r.estoque.toFixed(2)}</td>
+      <td class="dim">${r.pedidos}</td>
+      <td class="dim">${r.interv!=null?r.interv+'d':'—'}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-off);padding:1rem">Nenhum resultado</td></tr>';
+  renderPag('pag_prod', pProd, Math.ceil(total/PPP), p=>{pProd=p;renderProd();});
+}
+
+function renderGrupo() {
+  const total = dadosGrupo.length;
+  const ini = (pGrupo-1)*PPP, fim = Math.min(ini+PPP, total);
+  const pg = dadosGrupo.slice(ini, fim);
+  document.getElementById('tbody_grupo').innerHTML = pg.map(r=>`
+    <tr>
+      <td>${r.nome}</td>
+      <td class="dim">${Math.round(r.qtd)}</td>
+      <td class="accent">${brl(r.total)}</td>
+      <td class="dim">${r.pct.toFixed(1)}%</td>
+    </tr>`).join('');
+  renderPag('pag_grupo', pGrupo, Math.ceil(total/PPP), p=>{pGrupo=p;renderGrupo();});
+}
+
+function renderPag(id, cur, pages, cb) {
+  if (pages <= 1) { document.getElementById(id).innerHTML=''; return; }
+  document.getElementById(id).innerHTML = `
+    <button class="pag-btn" ${cur<=1?'disabled':''} onclick="(${cb})(${cur-1})">‹</button>
+    <span class="pag-info">${cur} / ${pages}</span>
+    <button class="pag-btn" ${cur>=pages?'disabled':''} onclick="(${cb})(${cur+1})">›</button>`;
+}
+
+function mudarMes(d) {
+  mesAtual += d;
+  if (mesAtual>11){mesAtual=0;anoAtual++;} if(mesAtual<0){mesAtual=11;anoAtual--;}
+  carregar();
+}
+carregar();
+</script>
+</body>
+</html>

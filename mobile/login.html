@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Obsidian — Login</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#131312"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="stylesheet" href="obsidian.css"/>
+<style>
+body { display: flex; flex-direction: column; justify-content: center; min-height: 100dvh; padding: 1.5rem; }
+.brand { text-align: center; margin-bottom: 2.5rem; }
+.brand__icon {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: rgba(255,102,0,.1); border: 1px solid rgba(255,102,0,.2);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-bottom: .875rem;
+}
+.brand__icon .material-symbols-outlined { font-size: 32px; color: var(--accent); font-variation-settings:'FILL' 1; }
+.brand__name { font-family: 'Manrope', sans-serif; font-size: 1.75rem; font-weight: 800; color: var(--accent); }
+.brand__sub  { font-size: .65rem; color: var(--text-off); letter-spacing: .15em; text-transform: uppercase; margin-top: 4px; }
+.login-card { background: var(--s-low); border: 1px solid var(--outline); border-radius: 1rem; padding: 1.75rem; margin-bottom: 1.5rem; }
+.login-card h2 { font-family: 'Manrope', sans-serif; font-size: 1.1rem; font-weight: 800; margin-bottom: 4px; }
+.login-card p  { font-size: .75rem; color: var(--text-off); margin-bottom: 1.25rem; }
+.field { margin-bottom: 1rem; }
+.field label { display: block; font-size: .62rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-off); margin-bottom: .375rem; }
+.pw-wrap { position: relative; }
+.pw-wrap .inp { padding-right: 2.5rem; }
+.pw-eye { position: absolute; right: .625rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-off); cursor: pointer; display: flex; align-items: center; }
+.pw-eye .material-symbols-outlined { font-size: 18px; }
+.error { color: #ff6b6b; font-size: .75rem; margin-bottom: .75rem; display: none; }
+.footer-txt { text-align: center; font-size: .65rem; color: var(--s-top); }
+</style>
+</head>
+<body>
+<div class="brand">
+  <div class="brand__icon"><span class="material-symbols-outlined">diamond</span></div>
+  <div class="brand__name">Obsidian</div>
+  <div class="brand__sub">Analytical Suite</div>
+</div>
+
+<div class="login-card">
+  <h2>Entrar</h2>
+  <p>Acesse com suas credenciais</p>
+  <form id="form" onsubmit="login(event)" novalidate>
+    <div class="field">
+      <label>E-mail</label>
+      <input id="email" type="email" class="inp" placeholder="seu@email.com" autocomplete="email"/>
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <div class="pw-wrap">
+        <input id="senha" type="password" class="inp" placeholder="••••••••" autocomplete="current-password"/>
+        <button type="button" class="pw-eye" onclick="togglePw()">
+          <span id="eye" class="material-symbols-outlined">visibility</span>
+        </button>
+      </div>
+    </div>
+    <div id="erro" class="error">E-mail ou senha incorretos.</div>
+    <button type="submit" id="btn" class="btn btn--primary">
+      <span id="btn_icon" class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;font-size:18px">login</span>
+      <span id="btn_txt">Entrar</span>
+    </button>
+  </form>
+</div>
+<div class="footer-txt">Obsidian © 2026</div>
+
+<script>
+const USERS = {
+  'gesseinvest@gmail.com':  '33fa1b511447a982a4e7827bc6ab6a8d41173da2c039b394836e9385c501a93d',
+  'tfmachado@yahoo.com.br': '33fa1b511447a982a4e7827bc6ab6a8d41173da2c039b394836e9385c501a93d',
+};
+if (localStorage.getItem('obs_session')) location.href = 'home.html';
+
+function sha256(str) {
+  const bytes = new TextEncoder().encode(str);
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  let h=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const r=(v,n)=>(v>>>n)|(v<<(32-n));
+  const pad=[...bytes,0x80];
+  while(pad.length%64!==56)pad.push(0);
+  const bits=bytes.length*8;
+  pad.push(0,0,0,0,(bits>>>24)&0xff,(bits>>>16)&0xff,(bits>>>8)&0xff,bits&0xff);
+  for(let off=0;off<pad.length;off+=64){
+    const w=new Array(64);
+    for(let i=0;i<16;i++)w[i]=(pad[off+i*4]<<24)|(pad[off+i*4+1]<<16)|(pad[off+i*4+2]<<8)|pad[off+i*4+3];
+    for(let i=16;i<64;i++){const s0=r(w[i-15],7)^r(w[i-15],18)^(w[i-15]>>>3);const s1=r(w[i-2],17)^r(w[i-2],19)^(w[i-2]>>>10);w[i]=(w[i-16]+s0+w[i-7]+s1)|0;}
+    let [a,b,c,d,e,f,g,hv]=h;
+    for(let i=0;i<64;i++){const S1=r(e,6)^r(e,11)^r(e,25);const ch=(e&f)^(~e&g);const t1=(hv+S1+ch+K[i]+w[i])|0;const S0=r(a,2)^r(a,13)^r(a,22);const mj=(a&b)^(a&c)^(b&c);const t2=(S0+mj)|0;hv=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;}
+    h[0]=(h[0]+a)|0;h[1]=(h[1]+b)|0;h[2]=(h[2]+c)|0;h[3]=(h[3]+d)|0;h[4]=(h[4]+e)|0;h[5]=(h[5]+f)|0;h[6]=(h[6]+g)|0;h[7]=(h[7]+hv)|0;
+  }
+  return h.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
+}
+function login(e) {
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const hash  = sha256(document.getElementById('senha').value);
+  const erro  = document.getElementById('erro');
+  erro.style.display = 'none';
+  document.getElementById('btn').disabled = true;
+  document.getElementById('btn_icon').textContent = 'sync';
+  document.getElementById('btn_icon').classList.add('spin');
+  document.getElementById('btn_txt').textContent = 'Verificando...';
+  if (USERS[email] && USERS[email] === hash) {
+    localStorage.setItem('obs_session', JSON.stringify({ email, ts: Date.now() }));
+    location.href = 'home.html';
+  } else {
+    erro.style.display = 'block';
+    document.getElementById('btn').disabled = false;
+    document.getElementById('btn_icon').textContent = 'login';
+    document.getElementById('btn_icon').classList.remove('spin');
+    document.getElementById('btn_txt').textContent = 'Entrar';
+  }
+}
+function togglePw() {
+  const i = document.getElementById('senha');
+  const e = document.getElementById('eye');
+  i.type = i.type === 'password' ? 'text' : 'password';
+  e.textContent = i.type === 'password' ? 'visibility' : 'visibility_off';
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

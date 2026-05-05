@@ -12,7 +12,14 @@ from datetime import datetime, timedelta
 try:
     import fdb
 except ImportError:
-    print("ERRO: execute 'pip install fdb requests' antes de rodar.")
+    print("ERRO: execute 'pip install fdb psycopg2-binary' antes de rodar.")
+    sys.exit(1)
+
+try:
+    import psycopg2
+    import psycopg2.extras
+except ImportError:
+    print("ERRO: execute 'pip install psycopg2-binary' antes de rodar.")
     sys.exit(1)
 
 # ---------------------------------------------------------------------------
@@ -79,7 +86,7 @@ TABELAS = {
                     QUANTIDADE_VENDIDA, PRECO_VENDA, SUB_TOTAL, DESCONTO,
                     ID_CLIENTE, ID_VENDEDOR, ID_LOJA, OPERACAO, ID_PLANO, DATA_MANUTENCAO
                     FROM SAIDAS WHERE DATA_MANUTENCAO >= ? ORDER BY DATA_MANUTENCAO""",
-        'delta': 'DATA_MANUTENCAO', 'padrao': '2000-01-01', 'limite_1_ano': True,
+        'delta': 'DATA_MANUTENCAO', 'padrao': '2025-01-01',
     },
     'plano_venda': {
         'query': """SELECT ID_PLANO, DESCRICAO, ID_TIPO, PARCELA, TXA,
@@ -126,14 +133,14 @@ TABELAS = {
                     ID_CONTA, CONTA, ID_CLIENTE, ID_VENDEDOR, ID_LOJA,
                     BAIXADO, BX, DATA_BAIXA
                     FROM CAIXA WHERE DATA >= ? ORDER BY DATA""",
-        'delta': 'DATA', 'padrao': '2000-01-01', 'limite_1_ano': True,
+        'delta': 'DATA', 'padrao': '2025-01-01',
     },
     'contas_receber': {
         'query': """SELECT ID_FATURA, NUMERO, PARCELA, EMISSAO, VENCIMENTO,
                     VALOR_PARCELA, VALOR_TOTAL, RECEBIDO, JUROS, DESCONTO,
                     ID_CLIENTE, ID_VENDEDOR, LOJA, BX, SITUACAO, DATA_RECEB
                     FROM CONTA_RECEBER WHERE EMISSAO >= ? ORDER BY EMISSAO""",
-        'delta': 'EMISSAO', 'padrao': '2000-01-01', 'limite_1_ano': True,
+        'delta': 'EMISSAO', 'padrao': '2025-01-01',
     },
     'contas_pagar': {
         'query': """SELECT ID_FATURA, NUMERO, ID_FORNECEDOR, DATA_EMISSAO, ID_TIPO,
@@ -141,7 +148,7 @@ TABELAS = {
                     VALOR_TOTAL, VALOR_PARCELA, BX, SITUACAO, ID_LOJA,
                     VALOR_PAGO, DATA_PAGO, REGISTRO
                     FROM FATURAS_PAGAR WHERE DATA_EMISSAO >= ? ORDER BY DATA_EMISSAO""",
-        'delta': 'DATA_EMISSAO', 'padrao': '2000-01-01', 'limite_1_ano': True,
+        'delta': 'DATA_EMISSAO', 'padrao': '2025-01-01',
     },
 }
 
@@ -184,28 +191,60 @@ def ler_tabela(conn, tabela, ultimo):
         yield [{desc[0].lower(): val for desc, val in zip(cur.description, row)} for row in rows]
 
 # ---------------------------------------------------------------------------
-# Supabase
+# PostgreSQL
 # ---------------------------------------------------------------------------
-def upsert_supabase(url, api_key, tabela, registros, tentativas=3, espera=5):
-    endpoint = f'{url}/rest/v1/{tabela}'
-    headers = {
-        'apikey': api_key,
-        'Authorization': f'Bearer {api_key}',
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates',
-    }
+_PK = {
+    'saidas':         ('id_saida',),
+    'plano_venda':    ('id_plano',),
+    'produtos':       ('id_produto',),
+    'estoque':        ('id_estoque',),
+    'clientes':       ('id_cliente',),
+    'vendedores':     ('id_vendedor',),
+    'fornecedores':   ('id_fornecedor',),
+    'grupo':          ('id_grupo',),
+    'caixa':          ('id_caixa',),
+    'contas_receber': ('id_fatura', 'parcela'),
+    'contas_pagar':   ('id_fatura', 'parcela'),
+}
+
+def _conectar_pg(pg_cfg):
+    return psycopg2.connect(
+        host=pg_cfg.get('host', '127.0.0.1'),
+        port=int(pg_cfg.get('port', 5432)),
+        dbname=pg_cfg['database'],
+        user=pg_cfg['user'],
+        password=pg_cfg['password'],
+    )
+
+def upsert_postgres(pg_cfg, tabela, registros, tentativas=3, espera=5):
+    logger = logging.getLogger('syncagent')
+    if not registros:
+        return True
+
+    pks    = _PK.get(tabela, ('id',))
+    campos = list(registros[0].keys())
+    colunas      = ', '.join(f'"{c}"' for c in campos)
+    placeholders = ', '.join(['%s'] * len(campos))
+    conflict     = ', '.join(f'"{c}"' for c in pks)
+    updates      = ', '.join(f'"{c}" = EXCLUDED."{c}"' for c in campos if c not in pks)
+    sql = (f'INSERT INTO {tabela} ({colunas}) VALUES ({placeholders}) '
+           f'ON CONFLICT ({conflict}) DO UPDATE SET {updates}')
+    valores = [tuple(r[c] for c in campos) for r in registros]
+
     for tentativa in range(1, tentativas + 1):
         try:
-            resp = requests.post(endpoint, json=registros, headers=headers, timeout=30)
-            if resp.status_code in (200, 201):
+            conn = _conectar_pg(pg_cfg)
+            try:
+                with conn:
+                    with conn.cursor() as cur:
+                        psycopg2.extras.execute_batch(cur, sql, valores, page_size=500)
                 return True
-            logging.getLogger('syncagent').warning(
-                f'{tabela} | tentativa {tentativa} | HTTP {resp.status_code}: {resp.text[:200]}'
-            )
-        except requests.RequestException as e:
-            logging.getLogger('syncagent').warning(f'{tabela} | tentativa {tentativa} | erro: {e}')
-        if tentativa < tentativas:
-            time.sleep(espera * tentativa)
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.warning(f'{tabela} | tentativa {tentativa} | {e}')
+            if tentativa < tentativas:
+                time.sleep(espera * tentativa)
     return False
 
 # ---------------------------------------------------------------------------
@@ -225,13 +264,11 @@ def serializar_batch(rows):
 # Ciclo
 # ---------------------------------------------------------------------------
 def executar_ciclo(cfg, logger):
-    sb = cfg['supabase']
+    pg_cfg   = cfg['postgres']
     sync_cfg = cfg['sync']
-    url = sb['url']
-    api_key = sb['api_key']
-    arquivo = sync_cfg.get('ultimo_sync_arquivo', 'ultimo_sync.json')
+    arquivo  = sync_cfg.get('ultimo_sync_arquivo', 'ultimo_sync.json')
     tentativas = int(sync_cfg.get('retry_tentativas', 3))
-    espera = int(sync_cfg.get('retry_espera_s', 5))
+    espera     = int(sync_cfg.get('retry_espera_s', 5))
 
     logger.info('=== Iniciando ciclo de sincronizacao ===')
     inicio = datetime.now()
@@ -255,7 +292,7 @@ def executar_ciclo(cfg, logger):
                     if not batch:
                         continue
                     lote_num += 1
-                    ok = upsert_supabase(url, api_key, tabela, serializar_batch(batch), tentativas, espera)
+                    ok = upsert_postgres(pg_cfg, tabela, serializar_batch(batch), tentativas, espera)
                     if ok:
                         total += len(batch)
                         campo = TABELAS[tabela]['delta']

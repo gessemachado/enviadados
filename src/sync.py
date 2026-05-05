@@ -1,5 +1,5 @@
 from datetime import datetime
-from src import firebird, supabase_client, ultimo_sync, log
+from src import firebird, postgres_client, ultimo_sync, log
 
 def _serializar(val):
     if hasattr(val, 'isoformat'):
@@ -12,11 +12,9 @@ def _serializar_rows(rows):
 def executar_ciclo(cfg):
     logger = log.get()
     fb_cfg = cfg['firebird']
-    sb_cfg = cfg['supabase']
+    pg_cfg = cfg['postgres']
     sync_cfg = cfg['sync']
 
-    url = sb_cfg['url']
-    api_key = sb_cfg['api_key']
     arquivo_sync = sync_cfg.get('ultimo_sync_arquivo', 'ultimo_sync.json')
     lote = int(sync_cfg.get('lote_tamanho', 500))
     tentativas = int(sync_cfg.get('retry_tentativas', 3))
@@ -45,8 +43,8 @@ def executar_ciclo(cfg):
 
                     lote_num += 1
                     serializado = _serializar_rows(batch)
-                    ok = supabase_client.upsert(
-                        url, api_key, tabela, serializado, tentativas, espera
+                    ok = postgres_client.upsert(
+                        pg_cfg, tabela, serializado, tentativas, espera
                     )
 
                     if ok:
@@ -89,5 +87,6 @@ def _delta_campo(tabela):
         'caixa': 'data',
         'contas_receber': 'data_atualizacao',
         'contas_pagar': 'data_atualizacao',
+        'plano_venda': None,
     }
     return mapa.get(tabela)

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Obsidian — Projeção</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#131312"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="stylesheet" href="obsidian.css"/>
+<style>
+.pills-section { padding: .625rem .875rem; }
+.pills-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+.pills-links { display: flex; gap: .875rem; font-size: .7rem; }
+.pills-links button { background: none; border: none; color: var(--accent); cursor: pointer; font-size: .7rem; }
+.pills-wrap { display: flex; flex-wrap: wrap; gap: .375rem; }
+.difmax { display: flex; align-items: center; gap: .75rem; padding: .5rem .875rem .875rem; }
+.difmax label { font-size: .7rem; color: var(--text-off); text-transform: uppercase; letter-spacing: .06em; }
+</style>
+</head>
+<body class="page">
+
+<header class="topbar">
+  <button class="icon-btn" onclick="logout()"><span class="material-symbols-outlined" style="font-size:22px">logout</span></button>
+  <span class="topbar__title">Projeção de Compras</span>
+  <span style="font-size:.6rem;color:var(--text-off)" id="periodo_label"></span>
+</header>
+
+<!-- Grupos -->
+<div class="pills-section">
+  <div class="pills-head">
+    <span class="label">Grupos</span>
+    <div class="pills-links">
+      <button onclick="selecionarTodos(true)">Todos</button>
+      <span style="color:var(--s-top)">|</span>
+      <button onclick="selecionarTodos(false)">Nenhum</button>
+    </div>
+  </div>
+  <div class="pills-wrap" id="grupos_wrap">
+    <span style="color:var(--text-off);font-size:.7rem">Carregando...</span>
+  </div>
+</div>
+
+<!-- Diferença Máxima -->
+<div class="difmax">
+  <label>Diferença Máxima</label>
+  <input id="difmax" type="number" class="inp inp--sm" value="5" style="width:64px"/>
+</div>
+
+<!-- Botão Consultar -->
+<div style="padding:0 .875rem .875rem">
+  <button id="btn_consultar" class="btn btn--primary" onclick="consultar()">
+    <span class="material-symbols-outlined" style="font-size:18px">search</span>
+    Consultar
+  </button>
+</div>
+
+<!-- Resultado -->
+<div id="resultado" style="display:none">
+  <div class="section-head"><span class="section-title" id="res_titulo">Resultado</span></div>
+  <div class="scroll-x" style="padding:0 .875rem 1.5rem">
+    <table class="tbl">
+      <thead><tr><th>Código</th><th>Produto</th><th>Estoque</th><th>Méd/Mês</th><th>Diferença</th></tr></thead>
+      <tbody id="tbody_res"></tbody>
+    </table>
+    <div class="pag" id="pag_res"></div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diário</span></a>
+  <a href="produtos.html" class="nav-item"><span class="material-symbols-outlined">bar_chart</span><span>Produtos</span></a>
+  <a href="financeiro.html" class="nav-item"><span class="material-symbols-outlined">payments</span><span>Financeiro</span></a>
+  <a href="projecao.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">warehouse</span><span>Projeção</span></a>
+</nav>
+
+<script>
+if (!localStorage.getItem('obs_session')) location.href = 'login.html';
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+let dadosRes = [], pRes = 1;
+const PPP = 15;
+
+function logout() { localStorage.removeItem('obs_session'); location.href = 'login.html'; }
+
+const hoje = new Date();
+const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+const anoAtr = hoje.getFullYear() - 1;
+const iniPeriodo = `${anoAtr}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+document.getElementById('periodo_label').textContent = `${iniPeriodo.split('-').reverse().join('/')} – ${hojeStr.split('-').reverse().join('/')}`;
+
+async function carregarGrupos() {
+  const data = await fetch('/api/grupos').then(r => r.json());
+  const wrap = document.getElementById('grupos_wrap');
+  wrap.innerHTML = '';
+  (data||[]).forEach(g => {
+    const btn = document.createElement('button');
+    btn.className = 'pill pill--off';
+    btn.dataset.id = g.id_grupo;
+    btn.dataset.sel = 'false';
+    btn.textContent = `${g.id_grupo} — ${g.grupo}`;
+    btn.onclick = () => togglePill(btn);
+    wrap.appendChild(btn);
+  });
+}
+
+function togglePill(btn) {
+  const on = btn.dataset.sel === 'true';
+  btn.dataset.sel = on ? 'false' : 'true';
+  btn.className = on ? 'pill pill--off' : 'pill pill--on';
+}
+
+function selecionarTodos(v) {
+  document.querySelectorAll('.pills-wrap .pill').forEach(b => {
+    b.dataset.sel = v ? 'true' : 'false';
+    b.className = v ? 'pill pill--on' : 'pill pill--off';
+  });
+}
+
+async function consultar() {
+  const grupos = [...document.querySelectorAll('.pills-wrap .pill[data-sel="true"]')].map(b=>parseInt(b.dataset.id));
+  if (!grupos.length) { alert('Selecione pelo menos um grupo.'); return; }
+  const difMax = parseFloat(document.getElementById('difmax').value) || 5;
+
+  const btn = document.getElementById('btn_consultar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-symbols-outlined spin" style="font-size:18px">sync</span> Consultando...';
+
+  try {
+    const res = await fetch('/api/relatorio_estoque', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data_inicio:   iniPeriodo,
+        data_fim:      hojeStr,
+        grupos:        grupos,
+        id_loja:       1,
+        diferenca_max: difMax,
+      }),
+    }).then(r => r.json());
+
+    dadosRes = (res || []).sort((a, b) => parseFloat(a.diferenca ?? 0) - parseFloat(b.diferenca ?? 0));
+    pRes = 1;
+    renderRes();
+    document.getElementById('resultado').style.display = 'block';
+    document.getElementById('resultado').scrollIntoView({ behavior: 'smooth' });
+  } catch(e) {
+    alert('Erro ao consultar: ' + (e.message||e));
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px">search</span> Consultar';
+  }
+}
+
+function renderRes() {
+  const total = dadosRes.length;
+  document.getElementById('res_titulo').textContent = `${total} produto${total!==1?'s':''} encontrado${total!==1?'s':''}`;
+  const ini = (pRes-1)*PPP, fim = Math.min(ini+PPP, total);
+  const pg = dadosRes.slice(ini, fim);
+
+  const fmt = (v, d=2) => v != null ? parseFloat(v).toFixed(d) : '—';
+  document.getElementById('tbody_res').innerHTML = pg.map(r => {
+    const diff = parseFloat(r.diferenca ?? 0);
+    const diffCls = diff < 0 ? 'style="color:#f87171;font-weight:700"' : diff <= 2 ? 'style="color:#fb923c;font-weight:600"' : 'class="accent"';
+    return `<tr>
+      <td class="dim" style="font-size:.6rem;white-space:nowrap;font-family:monospace">${r.codigo || '—'}</td>
+      <td style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.descricao||r.codigo||'—'}</td>
+      <td class="dim">${fmt(r.estoque_atual,1)}</td>
+      <td class="dim">${fmt(r.med_mensal,1)}</td>
+      <td ${diffCls}>${fmt(r.diferenca,1)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem resultados</td></tr>';
+
+  const pages = Math.ceil(total/PPP);
+  const pag = document.getElementById('pag_res');
+  if (pages <= 1) { pag.innerHTML=''; return; }
+  pag.innerHTML = `
+    <button class="pag-btn" ${pRes<=1?'disabled':''} onclick="pRes--;renderRes()">‹</button>
+    <span class="pag-info">${pRes} / ${pages}</span>
+    <button class="pag-btn" ${pRes>=pages?'disabled':''} onclick="pRes++;renderRes()">›</button>`;
+}
+
+carregarGrupos();
+</script>
+</body>
+</html>

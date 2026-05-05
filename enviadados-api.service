@@ -1,0 +1,21 @@
+[Unit]
+Description=EnviaDados Flask API
+After=network.target postgresql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/enviadados/api
+ExecStart=/opt/enviadados/api/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 127.0.0.1:5000 \
+    --timeout 60 \
+    --access-logfile /var/log/enviadados-api.log \
+    --error-logfile  /var/log/enviadados-api-err.log \
+    app:app
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
