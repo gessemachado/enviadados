@@ -75,7 +75,7 @@ def _cors_preflight():
     resp = app.make_default_options_response()
     resp.headers['Access-Control-Allow-Origin'] = '*'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PATCH, DELETE, OPTIONS'
     return resp
 
 
@@ -282,6 +282,79 @@ def perfil_senha():
     _write("UPDATE usuarios SET senha_hash = %s WHERE id_usuario = %s",
            (_hash(nova_senha), id_usuario))
     return _ok({'ok': True})
+
+
+# ── Admin — Editar / Excluir Usuário ─────────────────────────────────────────
+
+@app.route('/api/usuarios/<int:id_usuario>', methods=['PATCH', 'DELETE', 'OPTIONS'])
+@admin_required
+def usuario_update(id_usuario):
+    if request.method == 'OPTIONS':
+        return _cors_preflight()
+
+    if request.method == 'DELETE':
+        _write("DELETE FROM usuarios WHERE id_usuario = %s", (id_usuario,))
+        return _ok({'ok': True})
+
+    body  = request.json or {}
+    nome  = (body.get('nome') or '').strip()
+    email = (body.get('email') or '').strip().lower()
+    loja  = body.get('id_loja') or None
+    admin = bool(body.get('admin', False))
+    nova_senha = body.get('nova_senha') or ''
+
+    if not nome or not email:
+        return _err('Nome e e-mail são obrigatórios')
+
+    if nova_senha:
+        if len(nova_senha) < 6:
+            return _err('Senha deve ter pelo menos 6 caracteres')
+        _write(
+            "UPDATE usuarios SET nome=%s, email=%s, senha_hash=%s, id_loja=%s, admin=%s WHERE id_usuario=%s",
+            (nome, email, _hash(nova_senha), loja, admin, id_usuario)
+        )
+    else:
+        _write(
+            "UPDATE usuarios SET nome=%s, email=%s, id_loja=%s, admin=%s WHERE id_usuario=%s",
+            (nome, email, loja, admin, id_usuario)
+        )
+    rows = _query(
+        "SELECT u.id_usuario, u.nome, u.email, u.id_loja, l.nome AS loja, u.admin, u.ativo FROM usuarios u LEFT JOIN lojas l ON l.id_loja=u.id_loja WHERE u.id_usuario=%s",
+        (id_usuario,)
+    )
+    return _ok(rows[0] if rows else {})
+
+
+# ── Admin — Zerar dados de um tenant ─────────────────────────────────────────
+
+@app.route('/api/lojas/<int:id_loja>/dados', methods=['DELETE', 'OPTIONS'])
+@admin_required
+def zerar_dados(id_loja):
+    if request.method == 'OPTIONS':
+        return _cors_preflight()
+
+    rows = _query("SELECT id_tenant FROM lojas WHERE id_loja = %s", (id_loja,))
+    if not rows or not rows[0]['id_tenant']:
+        return _err('Loja não encontrada ou sem id_tenant configurado')
+
+    tenant = rows[0]['id_tenant']
+    tabelas = [
+        'saidas', 'estoque', 'produtos', 'clientes',
+        'vendedores', 'fornecedores', 'caixa',
+        'contas_receber', 'contas_pagar', 'plano_venda',
+    ]
+    conn = _conn()
+    totais = {}
+    try:
+        with conn.cursor() as cur:
+            for t in tabelas:
+                cur.execute(f"DELETE FROM {t} WHERE id_tenant = %s", (tenant,))
+                totais[t] = cur.rowcount
+            conn.commit()
+    finally:
+        conn.close()
+
+    return _ok({'ok': True, 'id_tenant': tenant, 'deletados': totais})
 
 
 # ── Saídas ────────────────────────────────────────────────────────────────────
