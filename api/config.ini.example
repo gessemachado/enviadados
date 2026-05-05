@@ -1,28 +1,40 @@
+; ============================================================
+;  SyncAgent — Configuração
+;  Copie este arquivo para config.ini e preencha os valores
+; ============================================================
+
 [postgres]
-host     = 127.0.0.1
+; Servidor PostgreSQL na nuvem (VPS)
+host     = 108.174.148.133
 port     = 5432
 database = enviadados
 user     = enviadados
-password = SENHA_PG_AQUI
-
-[app]
-secret_key = CHAVE_SECRETA_AQUI
-
-[enviadados]
-; ID único deste tenant/loja — deve coincidir com id_tenant na tabela lojas
-; Cada instalação do SyncAgent recebe um id_tenant diferente
-id_tenant = 1
+password = SENHA_DO_BANCO_AQUI
 
 [firebird]
-host     = localhost
-database = CAMINHO_PARA_O_BANCO.FDB
+; Banco de dados Firebird local (ERP do cliente)
+; Se o banco for local (mesmo PC), deixe host em branco
+host     =
+port     = 3050
+database = C:\Dados\BANCO.FDB
 user     = SYSDBA
 password = masterkey
 charset  = WIN1252
+; Se precisar apontar para a DLL do Firebird manualmente:
+; fbclient = C:\Windows\System32\fbclient.dll
+
+[enviadados]
+; ID único desta loja — deve ser diferente para cada instalação
+; Crie a loja no painel Admin com o mesmo número
+; Loja 1 = 1, Loja 2 = 2, etc.
+id_tenant = 1
 
 [sync]
-intervalo_minutos    = 15
-retry_tentativas     = 3
-retry_espera_s       = 5
-log_arquivo          = sync_log.txt
-ultimo_sync_arquivo  = ultimo_sync.json
+; Intervalo entre sincronizações (em minutos)
+intervalo_minutos   = 15
+; Tentativas em caso de falha de conexão
+retry_tentativas    = 3
+retry_espera_s      = 5
+; Arquivos de log e controle
+log_arquivo         = sync_log.txt
+ultimo_sync_arquivo = ultimo_sync.json
