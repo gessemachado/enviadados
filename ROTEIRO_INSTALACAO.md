@@ -62,18 +62,33 @@ O sistema tem duas partes:
 
 ## PASSO 2 — Preparar a pasta de instalação
 
-No computador do cliente, crie a pasta:
+### Antes de ir ao cliente — gerar o SyncAgent.exe
+
+No **seu computador** (onde está o código fonte), abra a pasta do projeto e execute:
+
+```
+build.bat
+```
+
+Isso gera o arquivo `dist\SyncAgent.exe`. Esse é o executável que vai para o cliente.
+
+---
+
+### No computador do cliente, crie a pasta:
 
 ```
 C:\Obsidian\
 ```
 
-Copie para dentro dela:
-- `SyncAgent.exe`
-- `config.ini`
-- `INICIAR.BAT`
+Copie para dentro dela **3 arquivos**:
 
-> **Dica:** Crie um atalho do `INICIAR.BAT` na Área de Trabalho e renomeie para `Obsidian — Iniciar`.
+| # | Arquivo | De onde vem |
+|---|---|---|
+| 1 | `SyncAgent.exe` | Gerado pelo `build.bat` → pasta `dist\` |
+| 2 | `config.ini` | Cópia do `config.ini.example` — você vai editar no Passo 3 |
+| 3 | `INICIAR_CLIENTE.BAT` | Arquivo da pasta do projeto |
+
+> **Dica:** Crie um atalho do `INICIAR_CLIENTE.BAT` na Área de Trabalho e renomeie para `Obsidian — Iniciar`.
 
 ---
 
