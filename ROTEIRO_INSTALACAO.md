@@ -94,7 +94,16 @@ Copie para dentro dela **3 arquivos**:
 
 ## PASSO 3 — Configurar o config.ini
 
-Abra o arquivo `C:\Obsidian\config.ini` com o **Bloco de Notas** e preencha:
+Abra o arquivo `C:\Obsidian\config.ini` com o **Bloco de Notas**.
+
+A seção `[postgres]` e `[sync]` **não muda nunca** — já vem preenchida.
+Você só precisa alterar **3 campos** na seção `[firebird]` e `[enviadados]`.
+
+---
+
+### Caso 1 — Banco Firebird no mesmo computador (mais comum)
+
+O ERP e o SyncAgent estão na mesma máquina. O campo `host` fica em branco.
 
 ```ini
 [postgres]
@@ -105,15 +114,15 @@ user     = enviadados
 password = Gab@311284
 
 [firebird]
-host     = 192.168.0.1          ← IP do servidor do ERP (ou deixe em branco se local)
+host     =
 port     = 3050
-database = C:\Dados\BANCO.FDB   ← ALTERAR: caminho exato do banco Firebird
+database = C:\Megaflex\Dados\BANCO.FDB
 user     = SYSDBA
-password = masterkey             ← senha do Firebird (padrão: masterkey)
+password = masterkey
 charset  = WIN1252
 
 [enviadados]
-id_tenant = 3                    ← ALTERAR: número anotado no Passo 1
+id_tenant = 3
 
 [sync]
 intervalo_minutos   = 15
@@ -123,15 +132,52 @@ log_arquivo         = sync_log.txt
 ultimo_sync_arquivo = ultimo_sync.json
 ```
 
-**Campos obrigatórios a alterar:**
-| Campo | O que colocar |
-|---|---|
-| `host` (firebird) | IP do servidor onde o ERP está instalado. Se for o mesmo PC, deixar em branco |
-| `database` | Caminho completo do arquivo `.FDB`. Perguntar ao cliente ou verificar dentro do ERP |
-| `password` (firebird) | Senha do banco. Padrão é `masterkey`. Se o cliente alterou, descobrir com o suporte do ERP |
-| `id_tenant` | Número único anotado no Passo 1 |
+---
 
-Salve o arquivo.
+### Caso 2 — Banco Firebird em outro computador da rede
+
+O ERP está instalado em um servidor e os outros PCs acessam pela rede.
+Coloque o IP do servidor no campo `host`.
+
+```ini
+[postgres]
+host     = 108.174.148.133
+port     = 5432
+database = enviadados
+user     = enviadados
+password = Gab@311284
+
+[firebird]
+host     = 192.168.0.10
+port     = 3050
+database = C:\Megaflex\Dados\BANCO.FDB
+user     = SYSDBA
+password = masterkey
+charset  = WIN1252
+
+[enviadados]
+id_tenant = 3
+
+[sync]
+intervalo_minutos   = 15
+retry_tentativas    = 3
+retry_espera_s      = 5
+log_arquivo         = sync_log.txt
+ultimo_sync_arquivo = ultimo_sync.json
+```
+
+---
+
+**Resumo dos campos a alterar em cada instalação:**
+
+| Campo | Caso 1 (local) | Caso 2 (rede) | Como descobrir |
+|---|---|---|---|
+| `host` (firebird) | *(deixar em branco)* | IP do servidor (ex: `192.168.0.10`) | Verificar configurações de rede do ERP |
+| `database` | Caminho local do `.FDB` | Caminho **no servidor** do `.FDB` | Abrir o ERP → Sobre → Banco de dados |
+| `password` (firebird) | `masterkey` (padrão) | `masterkey` (padrão) | Se diferente, pedir ao fornecedor do ERP |
+| `id_tenant` | Número único da loja | Número único da loja | Anotado no Passo 1 |
+
+Salve o arquivo após editar.
 
 ---
 
