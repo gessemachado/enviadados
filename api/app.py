@@ -552,10 +552,10 @@ def plano_venda():
 @token_required
 def grupos():
     tenant = _tenant_filter()
-    sql = "SELECT DISTINCT id_grupo, grupo FROM produtos WHERE id_grupo IS NOT NULL"
+    sql = "SELECT id_grupo, MAX(grupo) AS grupo FROM produtos WHERE id_grupo IS NOT NULL"
     if tenant is None:
-        return _ok(_query(sql + " ORDER BY id_grupo"))
-    return _ok(_query(sql + " AND id_tenant = %s ORDER BY id_grupo", (tenant,)))
+        return _ok(_query(sql + " GROUP BY id_grupo ORDER BY id_grupo"))
+    return _ok(_query(sql + " AND id_tenant = %s GROUP BY id_grupo ORDER BY id_grupo", (tenant,)))
 
 
 # ── Relatório de estoque ──────────────────────────────────────────────────────
