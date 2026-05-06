@@ -15,6 +15,11 @@
 .section-title { font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-off); }
 .dias-wrap { display:flex; align-items:center; gap:.375rem; }
 .dias-wrap span { font-size:.6rem; color:var(--text-off); }
+.pag-lim { display:flex; align-items:center; gap:.375rem; padding:.375rem .875rem; border-top:1px solid var(--outline); }
+.pag-lim__lbl { font-size:.55rem; color:var(--text-off); text-transform:uppercase; letter-spacing:.06em; }
+.pag-lim__btn { padding:.2rem .5rem; border-radius:.3rem; border:1px solid var(--outline); background:none; color:var(--text-off); font-size:.65rem; font-weight:700; cursor:pointer; }
+.pag-lim__btn--act { background:#ff6600; border-color:#ff6600; color:#fff; }
+.pag-lim__info { margin-left:auto; font-size:.6rem; color:var(--text-off); }
 </style>
 </head>
 <body class="page">
@@ -24,103 +29,103 @@
   <span class="topbar__title">Clientes</span>
   <div class="topbar__nav">
     <button onclick="mudarMes(-1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_left</span></button>
-    <span class="topbar__month" id="mes_label">—</span>
+    <span class="topbar__month" id="mes_label">--</span>
     <button onclick="mudarMes(1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
   </div>
 </header>
 
 <div id="loja_sel_wrap" style="display:none;padding:.5rem .875rem .25rem">
   <select id="sel_loja" onchange="filtrarLoja(this.value)" class="inp inp--sm" style="width:100%">
-    <option value="">— Todas as lojas —</option>
+    <option value="">-- Todas as lojas --</option>
   </select>
 </div>
 
 <!-- KPIs -->
 <div class="kpi-grid">
   <div class="kpi-card">
-    <div class="label">Ticket Médio</div>
-    <div class="kpi-val t-head" id="k_ticket">—</div>
+    <div class="label">Ticket Medio</div>
+    <div class="kpi-val t-head" id="k_ticket">--</div>
   </div>
   <div class="kpi-card">
     <div class="label">Pedidos</div>
-    <div class="kpi-val t-head" id="k_pedidos">—</div>
+    <div class="kpi-val t-head" id="k_pedidos">--</div>
   </div>
   <div class="kpi-card">
-    <div class="label">Clientes Únicos</div>
-    <div class="kpi-val t-head" id="k_unicos">—</div>
+    <div class="label">Clientes Unicos</div>
+    <div class="kpi-val t-head" id="k_unicos">--</div>
   </div>
   <div class="kpi-card kpi-card--accent">
-    <div class="label">Freq. Média</div>
-    <div class="kpi-val kpi-val--accent t-head" id="k_freq">—</div>
+    <div class="label">Freq. Media</div>
+    <div class="kpi-val kpi-val--accent t-head" id="k_freq">--</div>
     <div class="kpi-sub">pedidos/cliente</div>
   </div>
 </div>
 
-<!-- Top 10 -->
+<!-- Top Clientes -->
 <div class="section-head" style="margin-top:.75rem">
   <span class="section-title">Top Clientes por Valor</span>
 </div>
-<div class="scroll-x" style="padding:0 .875rem .5rem">
+<div class="scroll-x" style="padding:0 .875rem 0">
   <table class="tbl">
     <thead><tr><th>#</th><th>Cliente</th><th>Ped.</th><th>Total</th><th>Ticket</th></tr></thead>
     <tbody id="tbody_top10"></tbody>
   </table>
-  <div class="pag" id="pag_top10"></div>
 </div>
+<div class="pag-lim" id="pag_top10"></div>
 
 <!-- Inativos -->
 <div class="section-head" style="margin-top:.5rem">
   <span class="section-title">Inativos</span>
   <div class="dias-wrap">
-    <span>Sem comprar há</span>
+    <span>Sem comprar ha</span>
     <input id="inp_dias" type="number" value="60" min="7" class="inp inp--sm" style="width:52px;text-align:center"/>
     <span>dias</span>
     <button onclick="carregarInativos()" class="pill pill--on" style="padding:.2rem .5rem;font-size:.6rem">Buscar</button>
   </div>
 </div>
-<div class="scroll-x" style="padding:0 .875rem 1.5rem">
+<div class="scroll-x" style="padding:0 .875rem 0">
   <table class="tbl">
-    <thead><tr><th>Cliente</th><th>Última Compra</th><th>Dias</th><th>Total Hist.</th></tr></thead>
+    <thead><tr><th>Cliente</th><th>Ultima Compra</th><th>Dias</th><th>Total Hist.</th></tr></thead>
     <tbody id="tbody_inativos"></tbody>
   </table>
-  <div class="pag" id="pag_inativos"></div>
-  <div id="inativos_info" class="label" style="margin-top:.5rem;display:none"></div>
 </div>
+<div class="pag-lim" id="pag_inativos"></div>
+<div id="inativos_info" class="label" style="padding:.25rem .875rem;display:none"></div>
 
 <!-- Produtos por Pedidos -->
 <div class="section-head" style="margin-top:.5rem">
   <span class="section-title">Produtos por Pedidos</span>
 </div>
-<div class="scroll-x" style="padding:0 .875rem .5rem">
+<div class="scroll-x" style="padding:0 .875rem 0">
   <table class="tbl">
     <thead><tr><th>#</th><th>Produto</th><th>Pedidos</th><th>Qtd</th></tr></thead>
     <tbody id="tbody_prod_ped">
       <tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Carregando...</td></tr>
     </tbody>
   </table>
-  <div class="pag" id="pag_prod_ped"></div>
 </div>
+<div class="pag-lim" id="pag_prod_ped"></div>
 
 <!-- Produtos por Volume -->
-<div class="section-head" style="margin-top:.25rem">
+<div class="section-head" style="margin-top:.5rem">
   <span class="section-title">Produtos por Volume</span>
 </div>
-<div class="scroll-x" style="padding:0 .875rem 1.5rem">
+<div class="scroll-x" style="padding:0 .875rem 0">
   <table class="tbl">
     <thead><tr><th>#</th><th>Produto</th><th>Total</th><th>Qtd</th></tr></thead>
     <tbody id="tbody_prod_vol">
       <tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Carregando...</td></tr>
     </tbody>
   </table>
-  <div class="pag" id="pag_prod_vol"></div>
 </div>
+<div class="pag-lim" id="pag_prod_vol" style="margin-bottom:1.5rem"></div>
 
 <nav class="bottom-nav">
-  <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diário</span></a>
+  <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diario</span></a>
   <a href="produtos.html" class="nav-item"><span class="material-symbols-outlined">bar_chart</span><span>Produtos</span></a>
   <a href="financeiro.html" class="nav-item"><span class="material-symbols-outlined">payments</span><span>Financeiro</span></a>
   <a href="clientes.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">group</span><span>Clientes</span></a>
-  <a href="projecao.html" class="nav-item"><span class="material-symbols-outlined">warehouse</span><span>Projeção</span></a>
+  <a href="projecao.html" class="nav-item"><span class="material-symbols-outlined">warehouse</span><span>Projecao</span></a>
   <a href="perfil.html" class="nav-item"><span class="material-symbols-outlined">manage_accounts</span><span>Perfil</span></a>
 </nav>
 
@@ -148,11 +153,12 @@ async function initLojaSelector() {
     if (saved) sel.value = saved;
   } catch(e) {}
 }
-async function apiFetch(url, opts = {}) {
+async function apiFetch(url, opts) {
+  opts = opts || {};
   const token = localStorage.getItem('obs_token');
   const tenant = sessionStorage.getItem('obs_tenant_filter');
-  if (tenant) url += (url.includes('?') ? '&' : '?') + 'tenant_filter=' + tenant;
-  const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}` } });
+  if (tenant) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'tenant_filter=' + tenant;
+  const r = await fetch(url, Object.assign({}, opts, { headers: Object.assign({}, opts.headers || {}, { 'Authorization': 'Bearer ' + token }) }));
   if (r.status === 401) { logout(); throw new Error('Sessao expirada'); }
   if (!r.ok) throw new Error(await r.text());
   return r.json();
@@ -172,108 +178,108 @@ function mudarMes(d) {
 function periodoMes() {
   const ini = anoAtual + '-' + String(mesAtual+1).padStart(2,'0') + '-01';
   const ultimo = new Date(anoAtual, mesAtual+1, 0).getDate();
-  const fim = anoAtual + '-' + String(mesAtual+1).padStart(2,'0') + '-' + ultimo;
-  return { ini, fim };
+  const fim = anoAtual + '-' + String(mesAtual+1).padStart(2,'0') + '-' + String(ultimo).padStart(2,'0');
+  return { ini: ini, fim: fim };
 }
 
-const fmtR = v => v != null ? 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '--';
-const fmtD = s => s ? s.split('-').reverse().join('/') : '--';
+const fmtR = function(v) { return v != null ? 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '--'; };
+const fmtD = function(s) { return s ? s.split('-').reverse().join('/') : '--'; };
 
-const PPP = 10;
-let pTop10=1, dadosTop10=[];
-let pInativos=1, dadosInativos=[];
-let pProdPed=1, dadosProdPed=[];
-let pProdVol=1, dadosProdVol=[];
+let limTop10=10, dadosTop10=[];
+let limInativos=10, dadosInativos=[];
+let limProdPed=10, dadosProdPed=[];
+let limProdVol=10, dadosProdVol=[];
 
-function renderPag(id, cur, total, setFn) {
-  const pages = Math.ceil(total / PPP);
+function pagLim(id, lim, total, setFn) {
   const el = document.getElementById(id);
   if (!el) return;
-  if (pages <= 1) { el.innerHTML = ''; return; }
-  el.innerHTML =
-    '<button class="pag-btn"' + (cur<=1?' disabled':'') + ' onclick="' + setFn + '(' + (cur-1) + ')">‹</button>' +
-    '<span class="pag-info">' + cur + ' / ' + pages + '</span>' +
-    '<button class="pag-btn"' + (cur>=pages?' disabled':'') + ' onclick="' + setFn + '(' + (cur+1) + ')">›</button>';
+  if (!total) { el.innerHTML = ''; return; }
+  const shown = Math.min(lim, total);
+  let html = '<span class="pag-lim__lbl">Linhas</span>';
+  [10,20,30].forEach(function(n) {
+    html += '<button class="pag-lim__btn' + (n === lim ? ' pag-lim__btn--act' : '') + '" onclick="' + setFn + '(' + n + ')">' + n + '</button>';
+  });
+  html += '<span class="pag-lim__info">1-' + shown + ' de ' + total + '</span>';
+  el.innerHTML = html;
 }
 
 function renderTop10() {
-  const total = dadosTop10.length;
-  const pg = dadosTop10.slice((pTop10-1)*PPP, pTop10*PPP);
+  const pg = dadosTop10.slice(0, limTop10);
   document.getElementById('tbody_top10').innerHTML = pg.length
-    ? pg.map((r, i) =>
-        '<tr>' +
-        '<td class="dim" style="font-weight:700">' + ((pTop10-1)*PPP+i+1) + '</td>' +
-        '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>' +
-        '<td class="dim">' + r.pedidos + '</td>' +
-        '<td class="accent" style="font-weight:700">' + fmtR(r.total) + '</td>' +
-        '<td class="dim">' + fmtR(r.ticket_medio) + '</td>' +
-        '</tr>').join('')
+    ? pg.map(function(r, i) {
+        return '<tr>'
+          + '<td class="dim" style="font-weight:700">' + (i+1) + '</td>'
+          + '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>'
+          + '<td class="dim">' + r.pedidos + '</td>'
+          + '<td class="accent" style="font-weight:700">' + fmtR(r.total) + '</td>'
+          + '<td class="dim">' + fmtR(r.ticket_medio) + '</td>'
+          + '</tr>';
+      }).join('')
     : '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  renderPag('pag_top10', pTop10, total, 'setTop10Page');
+  pagLim('pag_top10', limTop10, dadosTop10.length, 'setLimTop10');
 }
-function setTop10Page(p) { pTop10 = p; renderTop10(); }
+function setLimTop10(n) { limTop10 = n; renderTop10(); }
 
 function renderInativos() {
-  const total = dadosInativos.length;
-  const pg = dadosInativos.slice((pInativos-1)*PPP, pInativos*PPP);
+  const pg = dadosInativos.slice(0, limInativos);
   document.getElementById('tbody_inativos').innerHTML = pg.length
-    ? pg.map(r => {
+    ? pg.map(function(r) {
         const d = r.dias_inativo;
         const cor = d === null ? 'color:var(--text-off)' : d > 180 ? 'color:#f87171;font-weight:700' : d > 90 ? 'color:#facc15' : 'color:var(--text-dim)';
-        return '<tr>' +
-          '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>' +
-          '<td class="dim">' + fmtD(r.ultima_compra) + '</td>' +
-          '<td style="' + cor + '">' + (d != null ? d+'d' : 'Nunca') + '</td>' +
-          '<td class="dim">' + fmtR(r.total_gasto) + '</td>' +
-          '</tr>';
+        return '<tr>'
+          + '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>'
+          + '<td class="dim">' + fmtD(r.ultima_compra) + '</td>'
+          + '<td style="' + cor + '">' + (d != null ? d+'d' : 'Nunca') + '</td>'
+          + '<td class="dim">' + fmtR(r.total_gasto) + '</td>'
+          + '</tr>';
       }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem inativos</td></tr>';
-  renderPag('pag_inativos', pInativos, total, 'setInativosPage');
+  pagLim('pag_inativos', limInativos, dadosInativos.length, 'setLimInativos');
 }
-function setInativosPage(p) { pInativos = p; renderInativos(); }
+function setLimInativos(n) { limInativos = n; renderInativos(); }
 
 function renderProdPed() {
-  const total = dadosProdPed.length;
-  const pg = dadosProdPed.slice((pProdPed-1)*PPP, pProdPed*PPP);
+  const pg = dadosProdPed.slice(0, limProdPed);
   document.getElementById('tbody_prod_ped').innerHTML = pg.length
-    ? pg.map((r, i) =>
-        '<tr>' +
-        '<td class="dim" style="font-weight:700">' + ((pProdPed-1)*PPP+i+1) + '</td>' +
-        '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>' +
-        '<td class="accent" style="font-weight:700">' + r.pedidos + '</td>' +
-        '<td class="dim">' + Math.round(r.quantidade) + '</td>' +
-        '</tr>').join('')
+    ? pg.map(function(r, i) {
+        return '<tr>'
+          + '<td class="dim" style="font-weight:700">' + (i+1) + '</td>'
+          + '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>'
+          + '<td class="accent" style="font-weight:700">' + r.pedidos + '</td>'
+          + '<td class="dim">' + Math.round(r.quantidade) + '</td>'
+          + '</tr>';
+      }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  renderPag('pag_prod_ped', pProdPed, total, 'setProdPedPage');
+  pagLim('pag_prod_ped', limProdPed, dadosProdPed.length, 'setLimProdPed');
 }
-function setProdPedPage(p) { pProdPed = p; renderProdPed(); }
+function setLimProdPed(n) { limProdPed = n; renderProdPed(); }
 
 function renderProdVol() {
-  const total = dadosProdVol.length;
-  const pg = dadosProdVol.slice((pProdVol-1)*PPP, pProdVol*PPP);
+  const pg = dadosProdVol.slice(0, limProdVol);
   document.getElementById('tbody_prod_vol').innerHTML = pg.length
-    ? pg.map((r, i) =>
-        '<tr>' +
-        '<td class="dim" style="font-weight:700">' + ((pProdVol-1)*PPP+i+1) + '</td>' +
-        '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>' +
-        '<td class="accent" style="font-weight:700">' + fmtR(r.total) + '</td>' +
-        '<td class="dim">' + Math.round(r.quantidade) + '</td>' +
-        '</tr>').join('')
+    ? pg.map(function(r, i) {
+        return '<tr>'
+          + '<td class="dim" style="font-weight:700">' + (i+1) + '</td>'
+          + '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>'
+          + '<td class="accent" style="font-weight:700">' + fmtR(r.total) + '</td>'
+          + '<td class="dim">' + Math.round(r.quantidade) + '</td>'
+          + '</tr>';
+      }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  renderPag('pag_prod_vol', pProdVol, total, 'setProdVolPage');
+  pagLim('pag_prod_vol', limProdVol, dadosProdVol.length, 'setLimProdVol');
 }
-function setProdVolPage(p) { pProdVol = p; renderProdVol(); }
+function setLimProdVol(n) { limProdVol = n; renderProdVol(); }
 
 async function carregarProdutos(ini, fim) {
   try {
     const data = await apiFetch('/api/clientes/produtos?inicio=' + ini + '&fim=' + fim);
     dadosProdPed = data.por_pedidos || [];
     dadosProdVol = data.por_volume  || [];
-    pProdPed = 1; pProdVol = 1;
+    limProdPed = 10; limProdVol = 10;
     renderProdPed();
     renderProdVol();
   } catch(e) {
-    ['tbody_prod_ped','tbody_prod_vol'].forEach(id => {
+    ['tbody_prod_ped','tbody_prod_vol'].forEach(function(id) {
       document.getElementById(id).innerHTML =
         '<tr><td colspan="4" style="color:#f87171;padding:1rem;text-align:center">' + e.message + '</td></tr>';
     });
@@ -281,10 +287,10 @@ async function carregarProdutos(ini, fim) {
 }
 
 async function carregar() {
-  const { ini, fim } = periodoMes();
-  carregarProdutos(ini, fim);
+  const p = periodoMes();
+  carregarProdutos(p.ini, p.fim);
   try {
-    const data = await apiFetch('/api/clientes/resumo?inicio=' + ini + '&fim=' + fim);
+    const data = await apiFetch('/api/clientes/resumo?inicio=' + p.ini + '&fim=' + p.fim);
     const kpi = data.kpi || {};
     document.getElementById('k_ticket').textContent  = fmtR(kpi.ticket_medio);
     document.getElementById('k_pedidos').textContent = kpi.total_pedidos != null ? kpi.total_pedidos : '--';
@@ -293,9 +299,8 @@ async function carregar() {
       ? (parseFloat(kpi.total_pedidos) / parseFloat(kpi.clientes_unicos)).toFixed(1) + 'x'
       : '--';
     document.getElementById('k_freq').textContent = freq;
-
     dadosTop10 = data.top10 || [];
-    pTop10 = 1;
+    limTop10 = 10;
     renderTop10();
   } catch(e) {
     document.getElementById('tbody_top10').innerHTML =
@@ -308,6 +313,7 @@ async function carregarInativos() {
   document.getElementById('tbody_inativos').innerHTML =
     '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Consultando...</td></tr>';
   document.getElementById('pag_inativos').innerHTML = '';
+  limInativos = 10;
   try {
     const rows = await apiFetch('/api/clientes/inativos?dias=' + dias);
     const info = document.getElementById('inativos_info');
@@ -317,9 +323,8 @@ async function carregarInativos() {
       info.style.display = 'none'; return;
     }
     dadosInativos = rows;
-    pInativos = 1;
     renderInativos();
-    info.textContent = rows.length + ' cliente' + (rows.length!==1?'s':'') + ' inativo' + (rows.length!==1?'s':'');
+    info.textContent = rows.length + ' cliente' + (rows.length !== 1 ? 's' : '') + ' inativo' + (rows.length !== 1 ? 's' : '');
     info.style.display = 'block';
   } catch(e) {
     document.getElementById('tbody_inativos').innerHTML =
