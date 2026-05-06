@@ -404,7 +404,7 @@ def clientes_resumo():
           {t_clause}
         GROUP BY s.id_cliente, c.cliente
         ORDER BY total DESC
-        LIMIT 10
+        LIMIT 30
     """, params)
 
     return _ok({'kpi': kpi[0] if kpi else {}, 'top10': top10})
