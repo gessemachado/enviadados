@@ -446,6 +446,37 @@ def clientes_inativos():
     return _ok(rows)
 
 
+@app.route('/api/clientes/produtos')
+@token_required
+def clientes_produtos():
+    inicio = request.args.get('inicio')
+    fim    = request.args.get('fim')
+    if not inicio or not fim:
+        return _err('inicio e fim são obrigatórios')
+
+    tenant = _tenant_filter()
+    t_clause = "" if tenant is None else "AND s.id_tenant = %(tenant)s"
+    params = {'inicio': inicio, 'fim': fim + ' 23:59:59', 'tenant': tenant}
+
+    base = f"""
+        SELECT
+            COALESCE(s.descricao, s.codigo, s.id_produto) AS nome,
+            s.codigo,
+            COUNT(DISTINCT s.numero_cupom)                AS pedidos,
+            SUM(s.quantidade_vendida)                     AS quantidade,
+            SUM(s.sub_total)                              AS total
+        FROM saidas s
+        WHERE s.data_venda BETWEEN %(inicio)s AND %(fim)s
+          AND s.operacao = 'V' AND s.quantidade_vendida > 0
+          AND s.id_cliente IS NOT NULL AND s.id_cliente <> ''
+          {t_clause}
+        GROUP BY s.id_produto, s.descricao, s.codigo
+    """
+    por_pedidos = _query(base + " ORDER BY pedidos DESC LIMIT 15", params)
+    por_volume  = _query(base + " ORDER BY total   DESC LIMIT 15", params)
+    return _ok({'por_pedidos': por_pedidos, 'por_volume': por_volume})
+
+
 # ── Saídas ────────────────────────────────────────────────────────────────────
 
 @app.route('/api/saidas')
