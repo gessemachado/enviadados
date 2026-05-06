@@ -195,7 +195,6 @@ tailwind.config = {
             <th class="px-3 py-2.5 text-left whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Código</th>
             <th class="px-3 py-2.5 text-left whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Descrição</th>
             <th class="px-3 py-2.5 text-center whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">UN</th>
-            <th class="px-3 py-2.5 text-left whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Seção</th>
             <th class="px-3 py-2.5 text-right whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Qtd Vendida</th>
             <th class="px-3 py-2.5 text-right whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Méd/Mês</th>
             <th class="px-3 py-2.5 text-right whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Méd/Dia</th>
@@ -385,7 +384,6 @@ function renderTabela(dados, params) {
       <td class="px-3 py-1.5 font-mono text-gray-400 text-[11px]">${r.codigo || ''}</td>
       <td class="px-3 py-1.5 text-gray-200">${r.descricao || ''}</td>
       <td class="px-3 py-1.5 text-center text-gray-500">${r.un || ''}</td>
-      <td class="px-3 py-1.5 text-gray-500">${r.secao || ''}</td>
       <td class="px-3 py-1.5 text-right text-gray-300">${fmt(r.quant_vend, 0)}</td>
       <td class="px-3 py-1.5 text-right text-gray-300">${fmt(r.med_mensal)}</td>
       <td class="px-3 py-1.5 text-right text-gray-500">${fmt(r.med_dia, 4)}</td>
@@ -429,7 +427,6 @@ function exportarExcel() {
     'Código':        r.codigo,
     'Descrição':     r.descricao,
     'UN':            r.un,
-    'Seção':         r.secao,
     'Qtd Vendida':   parseFloat(r.quant_vend) || 0,
     'Méd Mensal':    parseFloat(r.med_mensal) || 0,
     'Méd Dia':       parseFloat(r.med_dia) || 0,

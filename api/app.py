@@ -594,7 +594,7 @@ def relatorio_estoque():
             FROM estoque WHERE id_tenant = %s GROUP BY id_produto
         )
         SELECT p.id_grupo, p.grupo, p.codigo, p.descricao,
-               p.unidade AS un, p.grupo AS secao, v.quant_vend,
+               p.unidade AS un, v.quant_vend,
                ROUND((v.quant_vend / %s)::numeric, 2)            AS med_mensal,
                ROUND((v.quant_vend / %s)::numeric, 4)            AS med_dia,
                ROUND(((v.quant_vend / %s) * 15)::numeric, 2)    AS est_de_segur,
