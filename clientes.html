@@ -152,6 +152,14 @@ tailwind.config = {
           <span class="material-symbols-outlined text-[#FF6600] text-base" style="font-variation-settings:'FILL' 1">emoji_events</span>
           <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Top Clientes por Valor</h3>
         </div>
+        <div class="px-4 py-2 border-b border-white/5">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">search</span>
+            <input id="inp_filt_top10" type="text" placeholder="Filtrar cliente..."
+              class="w-full bg-surface-container border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"
+              oninput="setFiltTop10(this.value)"/>
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="w-full text-xs">
             <thead>
@@ -188,6 +196,14 @@ tailwind.config = {
             </button>
           </div>
         </div>
+        <div class="px-4 py-2 border-b border-white/5">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">search</span>
+            <input id="inp_filt_inativos" type="text" placeholder="Filtrar cliente..."
+              class="w-full bg-surface-container border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"
+              oninput="setFiltInativos(this.value)"/>
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="w-full text-xs">
             <thead>
@@ -218,6 +234,14 @@ tailwind.config = {
           <span class="material-symbols-outlined text-[#FF6600] text-base" style="font-variation-settings:'FILL' 1">shopping_cart</span>
           <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Produtos por Pedidos</h3>
         </div>
+        <div class="px-4 py-2 border-b border-white/5">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">search</span>
+            <input id="inp_filt_prod_ped" type="text" placeholder="Filtrar produto..."
+              class="w-full bg-surface-container border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"
+              oninput="setFiltProdPed(this.value)"/>
+          </div>
+        </div>
         <div class="overflow-x-auto">
           <table class="w-full text-xs">
             <thead>
@@ -241,6 +265,14 @@ tailwind.config = {
         <div class="px-5 py-4 border-b border-white/5 flex items-center gap-2">
           <span class="material-symbols-outlined text-[#FF6600] text-base" style="font-variation-settings:'FILL' 1">trending_up</span>
           <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Produtos por Volume</h3>
+        </div>
+        <div class="px-4 py-2 border-b border-white/5">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">search</span>
+            <input id="inp_filt_prod_vol" type="text" placeholder="Filtrar produto..."
+              class="w-full bg-surface-container border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"
+              oninput="setFiltProdVol(this.value)"/>
+          </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-xs">
@@ -328,10 +360,10 @@ const fmt  = (v, d=2) => v != null ? parseFloat(v).toLocaleString('pt-BR',{minim
 const fmtR = v => 'R$ ' + fmt(v);
 const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
 
-let limTop10=10, pTop10=1, dadosTop10=[];
-let limInativos=10, pInativos=1, dadosInativos=[];
-let limProdPed=10, pProdPed=1, dadosProdPed=[];
-let limProdVol=10, pProdVol=1, dadosProdVol=[];
+let limTop10=10, pTop10=1, dadosTop10=[], filtTop10='';
+let limInativos=10, pInativos=1, dadosInativos=[], filtInativos='';
+let limProdPed=10, pProdPed=1, dadosProdPed=[], filtProdPed='';
+let limProdVol=10, pProdVol=1, dadosProdVol=[], filtProdVol='';
 
 function pagUI(pagId, lim, page, total, limFn, pagFn) {
   const el = document.getElementById(pagId);
@@ -362,7 +394,9 @@ function pagUI(pagId, lim, page, total, limFn, pagFn) {
 }
 
 function renderTop10() {
-  const pg = dadosTop10.slice((pTop10-1)*limTop10, pTop10*limTop10);
+  const term = filtTop10.toLowerCase();
+  const filtered = term ? dadosTop10.filter(r => r.nome.toLowerCase().includes(term)) : dadosTop10;
+  const pg = filtered.slice((pTop10-1)*limTop10, pTop10*limTop10);
   document.getElementById('tbody_top10').innerHTML = pg.length
     ? pg.map((r, i) => `
       <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
@@ -372,14 +406,17 @@ function renderTop10() {
         <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
         <td class="px-4 py-2.5 text-gray-400 text-right">${fmtR(r.ticket_medio)}</td>
       </tr>`).join('')
-    : '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-600">Nenhum cliente identificado no período</td></tr>';
-  pagUI('pag_top10', limTop10, pTop10, dadosTop10.length, 'setLimTop10', 'setPTop10');
+    : '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-600">Nenhum resultado</td></tr>';
+  pagUI('pag_top10', limTop10, pTop10, filtered.length, 'setLimTop10', 'setPTop10');
 }
 function setLimTop10(n) { limTop10 = n; pTop10 = 1; renderTop10(); }
 function setPTop10(p) { pTop10 = p; renderTop10(); }
+function setFiltTop10(v) { filtTop10 = v; pTop10 = 1; renderTop10(); }
 
 function renderInativos() {
-  const pg = dadosInativos.slice((pInativos-1)*limInativos, pInativos*limInativos);
+  const term = filtInativos.toLowerCase();
+  const filtered = term ? dadosInativos.filter(r => r.nome.toLowerCase().includes(term)) : dadosInativos;
+  const pg = filtered.slice((pInativos-1)*limInativos, pInativos*limInativos);
   document.getElementById('tbody_inativos').innerHTML = pg.length
     ? pg.map(r => {
         const diasN = r.dias_inativo;
@@ -392,13 +429,16 @@ function renderInativos() {
         </tr>`;
       }).join('')
     : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem inativos</td></tr>';
-  pagUI('pag_inativos', limInativos, pInativos, dadosInativos.length, 'setLimInativos', 'setPInativos');
+  pagUI('pag_inativos', limInativos, pInativos, filtered.length, 'setLimInativos', 'setPInativos');
 }
 function setLimInativos(n) { limInativos = n; pInativos = 1; renderInativos(); }
 function setPInativos(p) { pInativos = p; renderInativos(); }
+function setFiltInativos(v) { filtInativos = v; pInativos = 1; renderInativos(); }
 
 function renderProdPed() {
-  const pg = dadosProdPed.slice((pProdPed-1)*limProdPed, pProdPed*limProdPed);
+  const term = filtProdPed.toLowerCase();
+  const filtered = term ? dadosProdPed.filter(r => r.nome.toLowerCase().includes(term)) : dadosProdPed;
+  const pg = filtered.slice((pProdPed-1)*limProdPed, pProdPed*limProdPed);
   document.getElementById('tbody_prod_ped').innerHTML = pg.length
     ? pg.map((r, i) => `
       <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
@@ -408,13 +448,16 @@ function renderProdPed() {
         <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
       </tr>`).join('')
     : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
-  pagUI('pag_prod_ped', limProdPed, pProdPed, dadosProdPed.length, 'setLimProdPed', 'setPProdPed');
+  pagUI('pag_prod_ped', limProdPed, pProdPed, filtered.length, 'setLimProdPed', 'setPProdPed');
 }
 function setLimProdPed(n) { limProdPed = n; pProdPed = 1; renderProdPed(); }
 function setPProdPed(p) { pProdPed = p; renderProdPed(); }
+function setFiltProdPed(v) { filtProdPed = v; pProdPed = 1; renderProdPed(); }
 
 function renderProdVol() {
-  const pg = dadosProdVol.slice((pProdVol-1)*limProdVol, pProdVol*limProdVol);
+  const term = filtProdVol.toLowerCase();
+  const filtered = term ? dadosProdVol.filter(r => r.nome.toLowerCase().includes(term)) : dadosProdVol;
+  const pg = filtered.slice((pProdVol-1)*limProdVol, pProdVol*limProdVol);
   document.getElementById('tbody_prod_vol').innerHTML = pg.length
     ? pg.map((r, i) => `
       <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
@@ -424,17 +467,21 @@ function renderProdVol() {
         <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
       </tr>`).join('')
     : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
-  pagUI('pag_prod_vol', limProdVol, pProdVol, dadosProdVol.length, 'setLimProdVol', 'setPProdVol');
+  pagUI('pag_prod_vol', limProdVol, pProdVol, filtered.length, 'setLimProdVol', 'setPProdVol');
 }
 function setLimProdVol(n) { limProdVol = n; pProdVol = 1; renderProdVol(); }
 function setPProdVol(p) { pProdVol = p; renderProdVol(); }
+function setFiltProdVol(v) { filtProdVol = v; pProdVol = 1; renderProdVol(); }
 
 async function carregarProdutos(ini, fim) {
   try {
     const data = await apiFetch(`/api/clientes/produtos?inicio=${ini}&fim=${fim}`);
     dadosProdPed = data.por_pedidos || [];
     dadosProdVol = data.por_volume  || [];
-    limProdPed = 10; pProdPed = 1; limProdVol = 10; pProdVol = 1;
+    limProdPed = 10; pProdPed = 1; filtProdPed = '';
+    limProdVol = 10; pProdVol = 1; filtProdVol = '';
+    const fp = document.getElementById('inp_filt_prod_ped'); if (fp) fp.value = '';
+    const fv = document.getElementById('inp_filt_prod_vol'); if (fv) fv.value = '';
     renderProdPed();
     renderProdVol();
   } catch(e) {
@@ -463,7 +510,8 @@ async function carregar() {
     document.getElementById('k_freq').textContent = freq === '—' ? '—' : freq + 'x';
 
     dadosTop10 = data.top10 || [];
-    limTop10 = 10; pTop10 = 1;
+    limTop10 = 10; pTop10 = 1; filtTop10 = '';
+    const fi = document.getElementById('inp_filt_top10'); if (fi) fi.value = '';
     renderTop10();
   } catch(e) {
     document.getElementById('tbody_top10').innerHTML =
@@ -490,7 +538,8 @@ async function carregarInativos() {
       return;
     }
     dadosInativos = rows;
-    limInativos = 10; pInativos = 1;
+    limInativos = 10; pInativos = 1; filtInativos = '';
+    const fn = document.getElementById('inp_filt_inativos'); if (fn) fn.value = '';
     renderInativos();
     footer.textContent = `${rows.length} cliente${rows.length !== 1 ? 's' : ''} inativo${rows.length !== 1 ? 's' : ''}`;
     footer.classList.remove('hidden');
