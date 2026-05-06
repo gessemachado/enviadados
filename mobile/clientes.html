@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>Obsidian — Clientes</title>
+<title>Obsidian - Clientes</title>
 <link rel="manifest" href="manifest.json"/>
 <meta name="theme-color" content="#131312"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -15,11 +15,14 @@
 .section-title { font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-off); }
 .dias-wrap { display:flex; align-items:center; gap:.375rem; }
 .dias-wrap span { font-size:.6rem; color:var(--text-off); }
-.pag-lim { display:flex; align-items:center; gap:.375rem; padding:.375rem .875rem; border-top:1px solid var(--outline); }
-.pag-lim__lbl { font-size:.55rem; color:var(--text-off); text-transform:uppercase; letter-spacing:.06em; }
-.pag-lim__btn { padding:.2rem .5rem; border-radius:.3rem; border:1px solid var(--outline); background:none; color:var(--text-off); font-size:.65rem; font-weight:700; cursor:pointer; }
-.pag-lim__btn--act { background:#ff6600; border-color:#ff6600; color:#fff; }
-.pag-lim__info { margin-left:auto; font-size:.6rem; color:var(--text-off); }
+.pag-row { display:flex; align-items:center; gap:.375rem; padding:.375rem .875rem; border-top:1px solid var(--outline); flex-wrap:wrap; }
+.pag-lbl { font-size:.55rem; color:var(--text-off); text-transform:uppercase; letter-spacing:.06em; }
+.pag-sz { padding:.2rem .45rem; border-radius:.3rem; border:1px solid var(--outline); background:none; color:var(--text-off); font-size:.65rem; font-weight:700; cursor:pointer; }
+.pag-sz--act { background:#ff6600; border-color:#ff6600; color:#fff; }
+.pag-nav { display:flex; align-items:center; gap:.375rem; margin-left:auto; }
+.pag-nav-btn { padding:.2rem .45rem; border-radius:.3rem; border:1px solid var(--outline); background:none; color:var(--text-off); font-size:.8rem; font-weight:700; cursor:pointer; line-height:1; }
+.pag-nav-btn:disabled { opacity:.3; cursor:default; }
+.pag-range { font-size:.6rem; color:var(--text-off); white-space:nowrap; }
 </style>
 </head>
 <body class="page">
@@ -71,7 +74,7 @@
     <tbody id="tbody_top10"></tbody>
   </table>
 </div>
-<div class="pag-lim" id="pag_top10"></div>
+<div class="pag-row" id="pag_top10"></div>
 
 <!-- Inativos -->
 <div class="section-head" style="margin-top:.5rem">
@@ -89,7 +92,7 @@
     <tbody id="tbody_inativos"></tbody>
   </table>
 </div>
-<div class="pag-lim" id="pag_inativos"></div>
+<div class="pag-row" id="pag_inativos"></div>
 <div id="inativos_info" class="label" style="padding:.25rem .875rem;display:none"></div>
 
 <!-- Produtos por Pedidos -->
@@ -104,7 +107,7 @@
     </tbody>
   </table>
 </div>
-<div class="pag-lim" id="pag_prod_ped"></div>
+<div class="pag-row" id="pag_prod_ped"></div>
 
 <!-- Produtos por Volume -->
 <div class="section-head" style="margin-top:.5rem">
@@ -118,7 +121,7 @@
     </tbody>
   </table>
 </div>
-<div class="pag-lim" id="pag_prod_vol" style="margin-bottom:1.5rem"></div>
+<div class="pag-row" id="pag_prod_vol" style="margin-bottom:1.5rem"></div>
 
 <nav class="bottom-nav">
   <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diario</span></a>
@@ -143,8 +146,7 @@ function filtrarLoja(v) {
 async function initLojaSelector() {
   const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
   if (!u.admin) return;
-  const wrap = document.getElementById('loja_sel_wrap');
-  wrap.style.display = 'block';
+  document.getElementById('loja_sel_wrap').style.display = 'block';
   try {
     const lojas = await apiFetch('/api/lojas');
     const sel = document.getElementById('sel_loja');
@@ -185,30 +187,37 @@ function periodoMes() {
 const fmtR = function(v) { return v != null ? 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '--'; };
 const fmtD = function(s) { return s ? s.split('-').reverse().join('/') : '--'; };
 
-let limTop10=10, dadosTop10=[];
-let limInativos=10, dadosInativos=[];
-let limProdPed=10, dadosProdPed=[];
-let limProdVol=10, dadosProdVol=[];
+let limTop10=10, pTop10=1, dadosTop10=[];
+let limInativos=10, pInativos=1, dadosInativos=[];
+let limProdPed=10, pProdPed=1, dadosProdPed=[];
+let limProdVol=10, pProdVol=1, dadosProdVol=[];
 
-function pagLim(id, lim, total, setFn) {
+function pagRow(id, lim, page, total, limFn, pagFn) {
   const el = document.getElementById(id);
   if (!el) return;
   if (!total) { el.innerHTML = ''; return; }
-  const shown = Math.min(lim, total);
-  let html = '<span class="pag-lim__lbl">Linhas</span>';
+  const pages = Math.ceil(total / lim);
+  const from  = (page-1)*lim + 1;
+  const to    = Math.min(page*lim, total);
+  let szBtns = '';
   [10,20,30].forEach(function(n) {
-    html += '<button class="pag-lim__btn' + (n === lim ? ' pag-lim__btn--act' : '') + '" onclick="' + setFn + '(' + n + ')">' + n + '</button>';
+    szBtns += '<button class="pag-sz' + (n===lim?' pag-sz--act':'') + '" onclick="' + limFn + '(' + n + ')">' + n + '</button>';
   });
-  html += '<span class="pag-lim__info">1-' + shown + ' de ' + total + '</span>';
-  el.innerHTML = html;
+  el.innerHTML =
+    '<span class="pag-lbl">Linhas</span>' + szBtns +
+    '<div class="pag-nav">' +
+      '<button class="pag-nav-btn"' + (page<=1?' disabled':'') + ' onclick="' + pagFn + '(' + (page-1) + ')">&#8249;</button>' +
+      '<span class="pag-range">' + from + '-' + to + ' de ' + total + '</span>' +
+      '<button class="pag-nav-btn"' + (page>=pages?' disabled':'') + ' onclick="' + pagFn + '(' + (page+1) + ')">&#8250;</button>' +
+    '</div>';
 }
 
 function renderTop10() {
-  const pg = dadosTop10.slice(0, limTop10);
+  const pg = dadosTop10.slice((pTop10-1)*limTop10, pTop10*limTop10);
   document.getElementById('tbody_top10').innerHTML = pg.length
     ? pg.map(function(r, i) {
         return '<tr>'
-          + '<td class="dim" style="font-weight:700">' + (i+1) + '</td>'
+          + '<td class="dim" style="font-weight:700">' + ((pTop10-1)*limTop10+i+1) + '</td>'
           + '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>'
           + '<td class="dim">' + r.pedidos + '</td>'
           + '<td class="accent" style="font-weight:700">' + fmtR(r.total) + '</td>'
@@ -216,12 +225,13 @@ function renderTop10() {
           + '</tr>';
       }).join('')
     : '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  pagLim('pag_top10', limTop10, dadosTop10.length, 'setLimTop10');
+  pagRow('pag_top10', limTop10, pTop10, dadosTop10.length, 'setLimTop10', 'setPTop10');
 }
-function setLimTop10(n) { limTop10 = n; renderTop10(); }
+function setLimTop10(n) { limTop10 = n; pTop10 = 1; renderTop10(); }
+function setPTop10(p) { pTop10 = p; renderTop10(); }
 
 function renderInativos() {
-  const pg = dadosInativos.slice(0, limInativos);
+  const pg = dadosInativos.slice((pInativos-1)*limInativos, pInativos*limInativos);
   document.getElementById('tbody_inativos').innerHTML = pg.length
     ? pg.map(function(r) {
         const d = r.dias_inativo;
@@ -234,50 +244,52 @@ function renderInativos() {
           + '</tr>';
       }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem inativos</td></tr>';
-  pagLim('pag_inativos', limInativos, dadosInativos.length, 'setLimInativos');
+  pagRow('pag_inativos', limInativos, pInativos, dadosInativos.length, 'setLimInativos', 'setPInativos');
 }
-function setLimInativos(n) { limInativos = n; renderInativos(); }
+function setLimInativos(n) { limInativos = n; pInativos = 1; renderInativos(); }
+function setPInativos(p) { pInativos = p; renderInativos(); }
 
 function renderProdPed() {
-  const pg = dadosProdPed.slice(0, limProdPed);
+  const pg = dadosProdPed.slice((pProdPed-1)*limProdPed, pProdPed*limProdPed);
   document.getElementById('tbody_prod_ped').innerHTML = pg.length
     ? pg.map(function(r, i) {
         return '<tr>'
-          + '<td class="dim" style="font-weight:700">' + (i+1) + '</td>'
+          + '<td class="dim" style="font-weight:700">' + ((pProdPed-1)*limProdPed+i+1) + '</td>'
           + '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>'
           + '<td class="accent" style="font-weight:700">' + r.pedidos + '</td>'
           + '<td class="dim">' + Math.round(r.quantidade) + '</td>'
           + '</tr>';
       }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  pagLim('pag_prod_ped', limProdPed, dadosProdPed.length, 'setLimProdPed');
+  pagRow('pag_prod_ped', limProdPed, pProdPed, dadosProdPed.length, 'setLimProdPed', 'setPProdPed');
 }
-function setLimProdPed(n) { limProdPed = n; renderProdPed(); }
+function setLimProdPed(n) { limProdPed = n; pProdPed = 1; renderProdPed(); }
+function setPProdPed(p) { pProdPed = p; renderProdPed(); }
 
 function renderProdVol() {
-  const pg = dadosProdVol.slice(0, limProdVol);
+  const pg = dadosProdVol.slice((pProdVol-1)*limProdVol, pProdVol*limProdVol);
   document.getElementById('tbody_prod_vol').innerHTML = pg.length
     ? pg.map(function(r, i) {
         return '<tr>'
-          + '<td class="dim" style="font-weight:700">' + (i+1) + '</td>'
+          + '<td class="dim" style="font-weight:700">' + ((pProdVol-1)*limProdVol+i+1) + '</td>'
           + '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>'
           + '<td class="accent" style="font-weight:700">' + fmtR(r.total) + '</td>'
           + '<td class="dim">' + Math.round(r.quantidade) + '</td>'
           + '</tr>';
       }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  pagLim('pag_prod_vol', limProdVol, dadosProdVol.length, 'setLimProdVol');
+  pagRow('pag_prod_vol', limProdVol, pProdVol, dadosProdVol.length, 'setLimProdVol', 'setPProdVol');
 }
-function setLimProdVol(n) { limProdVol = n; renderProdVol(); }
+function setLimProdVol(n) { limProdVol = n; pProdVol = 1; renderProdVol(); }
+function setPProdVol(p) { pProdVol = p; renderProdVol(); }
 
 async function carregarProdutos(ini, fim) {
   try {
     const data = await apiFetch('/api/clientes/produtos?inicio=' + ini + '&fim=' + fim);
     dadosProdPed = data.por_pedidos || [];
     dadosProdVol = data.por_volume  || [];
-    limProdPed = 10; limProdVol = 10;
-    renderProdPed();
-    renderProdVol();
+    limProdPed = 10; pProdPed = 1; limProdVol = 10; pProdVol = 1;
+    renderProdPed(); renderProdVol();
   } catch(e) {
     ['tbody_prod_ped','tbody_prod_vol'].forEach(function(id) {
       document.getElementById(id).innerHTML =
@@ -296,11 +308,10 @@ async function carregar() {
     document.getElementById('k_pedidos').textContent = kpi.total_pedidos != null ? kpi.total_pedidos : '--';
     document.getElementById('k_unicos').textContent  = kpi.clientes_unicos != null ? kpi.clientes_unicos : '--';
     const freq = kpi.clientes_unicos > 0
-      ? (parseFloat(kpi.total_pedidos) / parseFloat(kpi.clientes_unicos)).toFixed(1) + 'x'
-      : '--';
+      ? (parseFloat(kpi.total_pedidos) / parseFloat(kpi.clientes_unicos)).toFixed(1) + 'x' : '--';
     document.getElementById('k_freq').textContent = freq;
     dadosTop10 = data.top10 || [];
-    limTop10 = 10;
+    limTop10 = 10; pTop10 = 1;
     renderTop10();
   } catch(e) {
     document.getElementById('tbody_top10').innerHTML =
@@ -313,7 +324,7 @@ async function carregarInativos() {
   document.getElementById('tbody_inativos').innerHTML =
     '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Consultando...</td></tr>';
   document.getElementById('pag_inativos').innerHTML = '';
-  limInativos = 10;
+  limInativos = 10; pInativos = 1;
   try {
     const rows = await apiFetch('/api/clientes/inativos?dias=' + dias);
     const info = document.getElementById('inativos_info');

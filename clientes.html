@@ -328,44 +328,58 @@ const fmt  = (v, d=2) => v != null ? parseFloat(v).toLocaleString('pt-BR',{minim
 const fmtR = v => 'R$ ' + fmt(v);
 const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
 
-let limTop10=10, dadosTop10=[];
-let limInativos=10, dadosInativos=[];
-let limProdPed=10, dadosProdPed=[];
-let limProdVol=10, dadosProdVol=[];
+let limTop10=10, pTop10=1, dadosTop10=[];
+let limInativos=10, pInativos=1, dadosInativos=[];
+let limProdPed=10, pProdPed=1, dadosProdPed=[];
+let limProdVol=10, pProdVol=1, dadosProdVol=[];
 
-function pagUI(pagId, lim, total, setFn) {
+function pagUI(pagId, lim, page, total, limFn, pagFn) {
   const el = document.getElementById(pagId);
   if (!el) return;
   if (!total) { el.innerHTML = ''; return; }
-  const shown = Math.min(lim, total);
-  const btnCls = n => n === lim
-    ? 'w-7 h-7 rounded-lg text-[11px] font-bold bg-[#FF6600] text-white'
-    : 'w-7 h-7 rounded-lg text-[11px] font-bold text-gray-400 hover:text-white bg-surface-container border border-white/10 hover:border-[#FF6600]/50 transition-all';
-  el.innerHTML = `<div class="flex items-center gap-3 px-4 py-2.5 border-t border-white/5">
+  const pages = Math.ceil(total / lim);
+  const from  = (page-1)*lim + 1;
+  const to    = Math.min(page*lim, total);
+  const limBtn = n => {
+    const cls = n === lim
+      ? 'w-7 h-7 rounded-lg text-[11px] font-bold bg-[#FF6600] text-white'
+      : 'w-7 h-7 rounded-lg text-[11px] font-bold text-gray-400 hover:text-white bg-surface-container border border-white/10 hover:border-[#FF6600]/50 transition-all';
+    return `<button class="${cls}" onclick="${limFn}(${n})">${n}</button>`;
+  };
+  const navBtn = (dis, fn, icon) => {
+    const cls = 'w-7 h-7 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed';
+    return `<button class="${cls}" ${dis?'disabled':''} onclick="${fn}"><span class="material-symbols-outlined text-sm">${icon}</span></button>`;
+  };
+  el.innerHTML = `<div class="flex items-center gap-2 px-4 py-2.5 border-t border-white/5">
     <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Linhas</span>
-    <div class="flex gap-1.5">${[10,20,30].map(n=>`<button class="${btnCls(n)}" onclick="${setFn}(${n})">${n}</button>`).join('')}</div>
-    <span class="ml-auto text-[11px] text-gray-500">1–${shown} de ${total}</span>
+    <div class="flex gap-1">${[10,20,30].map(limBtn).join('')}</div>
+    <div class="flex items-center gap-1.5 ml-auto">
+      ${navBtn(page<=1, `${pagFn}(${page-1})`, 'chevron_left')}
+      <span class="text-[11px] text-gray-500">${from}–${to} de ${total}</span>
+      ${navBtn(page>=pages, `${pagFn}(${page+1})`, 'chevron_right')}
+    </div>
   </div>`;
 }
 
 function renderTop10() {
-  const pg = dadosTop10.slice(0, limTop10);
+  const pg = dadosTop10.slice((pTop10-1)*limTop10, pTop10*limTop10);
   document.getElementById('tbody_top10').innerHTML = pg.length
     ? pg.map((r, i) => `
       <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-        <td class="px-4 py-2.5 text-gray-500 font-bold">${i+1}</td>
+        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pTop10-1)*limTop10+i+1}</td>
         <td class="px-4 py-2.5 text-white font-medium max-w-[140px] truncate" title="${r.nome}">${r.nome}</td>
         <td class="px-4 py-2.5 text-gray-400 text-right">${r.pedidos}</td>
         <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
         <td class="px-4 py-2.5 text-gray-400 text-right">${fmtR(r.ticket_medio)}</td>
       </tr>`).join('')
     : '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-600">Nenhum cliente identificado no período</td></tr>';
-  pagUI('pag_top10', limTop10, dadosTop10.length, 'setLimTop10');
+  pagUI('pag_top10', limTop10, pTop10, dadosTop10.length, 'setLimTop10', 'setPTop10');
 }
-function setLimTop10(n) { limTop10 = n; renderTop10(); }
+function setLimTop10(n) { limTop10 = n; pTop10 = 1; renderTop10(); }
+function setPTop10(p) { pTop10 = p; renderTop10(); }
 
 function renderInativos() {
-  const pg = dadosInativos.slice(0, limInativos);
+  const pg = dadosInativos.slice((pInativos-1)*limInativos, pInativos*limInativos);
   document.getElementById('tbody_inativos').innerHTML = pg.length
     ? pg.map(r => {
         const diasN = r.dias_inativo;
@@ -378,46 +392,49 @@ function renderInativos() {
         </tr>`;
       }).join('')
     : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem inativos</td></tr>';
-  pagUI('pag_inativos', limInativos, dadosInativos.length, 'setLimInativos');
+  pagUI('pag_inativos', limInativos, pInativos, dadosInativos.length, 'setLimInativos', 'setPInativos');
 }
-function setLimInativos(n) { limInativos = n; renderInativos(); }
+function setLimInativos(n) { limInativos = n; pInativos = 1; renderInativos(); }
+function setPInativos(p) { pInativos = p; renderInativos(); }
 
 function renderProdPed() {
-  const pg = dadosProdPed.slice(0, limProdPed);
+  const pg = dadosProdPed.slice((pProdPed-1)*limProdPed, pProdPed*limProdPed);
   document.getElementById('tbody_prod_ped').innerHTML = pg.length
     ? pg.map((r, i) => `
       <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-        <td class="px-4 py-2.5 text-gray-500 font-bold">${i+1}</td>
+        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pProdPed-1)*limProdPed+i+1}</td>
         <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
         <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${r.pedidos}</td>
         <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
       </tr>`).join('')
     : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
-  pagUI('pag_prod_ped', limProdPed, dadosProdPed.length, 'setLimProdPed');
+  pagUI('pag_prod_ped', limProdPed, pProdPed, dadosProdPed.length, 'setLimProdPed', 'setPProdPed');
 }
-function setLimProdPed(n) { limProdPed = n; renderProdPed(); }
+function setLimProdPed(n) { limProdPed = n; pProdPed = 1; renderProdPed(); }
+function setPProdPed(p) { pProdPed = p; renderProdPed(); }
 
 function renderProdVol() {
-  const pg = dadosProdVol.slice(0, limProdVol);
+  const pg = dadosProdVol.slice((pProdVol-1)*limProdVol, pProdVol*limProdVol);
   document.getElementById('tbody_prod_vol').innerHTML = pg.length
     ? pg.map((r, i) => `
       <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-        <td class="px-4 py-2.5 text-gray-500 font-bold">${i+1}</td>
+        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pProdVol-1)*limProdVol+i+1}</td>
         <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
         <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
         <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
       </tr>`).join('')
     : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
-  pagUI('pag_prod_vol', limProdVol, dadosProdVol.length, 'setLimProdVol');
+  pagUI('pag_prod_vol', limProdVol, pProdVol, dadosProdVol.length, 'setLimProdVol', 'setPProdVol');
 }
-function setLimProdVol(n) { limProdVol = n; renderProdVol(); }
+function setLimProdVol(n) { limProdVol = n; pProdVol = 1; renderProdVol(); }
+function setPProdVol(p) { pProdVol = p; renderProdVol(); }
 
 async function carregarProdutos(ini, fim) {
   try {
     const data = await apiFetch(`/api/clientes/produtos?inicio=${ini}&fim=${fim}`);
     dadosProdPed = data.por_pedidos || [];
     dadosProdVol = data.por_volume  || [];
-    limProdPed = 10; limProdVol = 10;
+    limProdPed = 10; pProdPed = 1; limProdVol = 10; pProdVol = 1;
     renderProdPed();
     renderProdVol();
   } catch(e) {
@@ -446,7 +463,7 @@ async function carregar() {
     document.getElementById('k_freq').textContent = freq === '—' ? '—' : freq + 'x';
 
     dadosTop10 = data.top10 || [];
-    limTop10 = 10;
+    limTop10 = 10; pTop10 = 1;
     renderTop10();
   } catch(e) {
     document.getElementById('tbody_top10').innerHTML =
@@ -473,7 +490,7 @@ async function carregarInativos() {
       return;
     }
     dadosInativos = rows;
-    limInativos = 10;
+    limInativos = 10; pInativos = 1;
     renderInativos();
     footer.textContent = `${rows.length} cliente${rows.length !== 1 ? 's' : ''} inativo${rows.length !== 1 ? 's' : ''}`;
     footer.classList.remove('hidden');
