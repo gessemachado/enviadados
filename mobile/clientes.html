@@ -23,6 +23,10 @@
 .pag-nav-btn { padding:.2rem .45rem; border-radius:.3rem; border:1px solid var(--outline); background:none; color:var(--text-off); font-size:.8rem; font-weight:700; cursor:pointer; line-height:1; }
 .pag-nav-btn:disabled { opacity:.3; cursor:default; }
 .pag-range { font-size:.6rem; color:var(--text-off); white-space:nowrap; }
+.filt-wrap { padding:.3rem .875rem; border-bottom:1px solid var(--outline); position:relative; }
+.filt-icon { position:absolute; left:1.25rem; top:50%; transform:translateY(-50%); font-size:14px; color:var(--text-off); pointer-events:none; line-height:1; }
+.filt-inp { width:100%; box-sizing:border-box; background:var(--s-high); border:1px solid var(--outline); border-radius:.375rem; padding:.3rem .5rem .3rem 1.75rem; font-size:.72rem; color:var(--text); outline:none; }
+.filt-inp::placeholder { color:var(--text-off); }
 </style>
 </head>
 <body class="page">
@@ -68,6 +72,10 @@
 <div class="section-head" style="margin-top:.75rem">
   <span class="section-title">Top Clientes por Valor</span>
 </div>
+<div class="filt-wrap">
+  <span class="material-symbols-outlined filt-icon">search</span>
+  <input id="inp_filt_top10" class="filt-inp" type="text" placeholder="Filtrar cliente..." oninput="setFiltTop10(this.value)"/>
+</div>
 <div class="scroll-x" style="padding:0 .875rem 0">
   <table class="tbl">
     <thead><tr><th>#</th><th>Cliente</th><th>Ped.</th><th>Total</th><th>Ticket</th></tr></thead>
@@ -86,6 +94,10 @@
     <button onclick="carregarInativos()" class="pill pill--on" style="padding:.2rem .5rem;font-size:.6rem">Buscar</button>
   </div>
 </div>
+<div class="filt-wrap">
+  <span class="material-symbols-outlined filt-icon">search</span>
+  <input id="inp_filt_inativos" class="filt-inp" type="text" placeholder="Filtrar cliente..." oninput="setFiltInativos(this.value)"/>
+</div>
 <div class="scroll-x" style="padding:0 .875rem 0">
   <table class="tbl">
     <thead><tr><th>Cliente</th><th>Ultima Compra</th><th>Dias</th><th>Total Hist.</th></tr></thead>
@@ -98,6 +110,10 @@
 <!-- Produtos por Pedidos -->
 <div class="section-head" style="margin-top:.5rem">
   <span class="section-title">Produtos por Pedidos</span>
+</div>
+<div class="filt-wrap">
+  <span class="material-symbols-outlined filt-icon">search</span>
+  <input id="inp_filt_prod_ped" class="filt-inp" type="text" placeholder="Filtrar produto..." oninput="setFiltProdPed(this.value)"/>
 </div>
 <div class="scroll-x" style="padding:0 .875rem 0">
   <table class="tbl">
@@ -112,6 +128,10 @@
 <!-- Produtos por Volume -->
 <div class="section-head" style="margin-top:.5rem">
   <span class="section-title">Produtos por Volume</span>
+</div>
+<div class="filt-wrap">
+  <span class="material-symbols-outlined filt-icon">search</span>
+  <input id="inp_filt_prod_vol" class="filt-inp" type="text" placeholder="Filtrar produto..." oninput="setFiltProdVol(this.value)"/>
 </div>
 <div class="scroll-x" style="padding:0 .875rem 0">
   <table class="tbl">
@@ -150,7 +170,7 @@ async function initLojaSelector() {
   try {
     const lojas = await apiFetch('/api/lojas');
     const sel = document.getElementById('sel_loja');
-    lojas.forEach(l => { const o = new Option(l.nome, l.id_tenant || ''); sel.appendChild(o); });
+    lojas.forEach(function(l) { const o = new Option(l.nome, l.id_tenant || ''); sel.appendChild(o); });
     const saved = sessionStorage.getItem('obs_tenant_filter');
     if (saved) sel.value = saved;
   } catch(e) {}
@@ -187,10 +207,10 @@ function periodoMes() {
 const fmtR = function(v) { return v != null ? 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '--'; };
 const fmtD = function(s) { return s ? s.split('-').reverse().join('/') : '--'; };
 
-let limTop10=10, pTop10=1, dadosTop10=[];
-let limInativos=10, pInativos=1, dadosInativos=[];
-let limProdPed=10, pProdPed=1, dadosProdPed=[];
-let limProdVol=10, pProdVol=1, dadosProdVol=[];
+let limTop10=10, pTop10=1, dadosTop10=[], filtTop10='';
+let limInativos=10, pInativos=1, dadosInativos=[], filtInativos='';
+let limProdPed=10, pProdPed=1, dadosProdPed=[], filtProdPed='';
+let limProdVol=10, pProdVol=1, dadosProdVol=[], filtProdVol='';
 
 function pagRow(id, lim, page, total, limFn, pagFn) {
   const el = document.getElementById(id);
@@ -213,7 +233,9 @@ function pagRow(id, lim, page, total, limFn, pagFn) {
 }
 
 function renderTop10() {
-  const pg = dadosTop10.slice((pTop10-1)*limTop10, pTop10*limTop10);
+  const term = filtTop10.toLowerCase();
+  const filtered = term ? dadosTop10.filter(function(r) { return r.nome.toLowerCase().indexOf(term) >= 0; }) : dadosTop10;
+  const pg = filtered.slice((pTop10-1)*limTop10, pTop10*limTop10);
   document.getElementById('tbody_top10').innerHTML = pg.length
     ? pg.map(function(r, i) {
         return '<tr>'
@@ -224,14 +246,17 @@ function renderTop10() {
           + '<td class="dim">' + fmtR(r.ticket_medio) + '</td>'
           + '</tr>';
       }).join('')
-    : '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  pagRow('pag_top10', limTop10, pTop10, dadosTop10.length, 'setLimTop10', 'setPTop10');
+    : '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem resultados</td></tr>';
+  pagRow('pag_top10', limTop10, pTop10, filtered.length, 'setLimTop10', 'setPTop10');
 }
 function setLimTop10(n) { limTop10 = n; pTop10 = 1; renderTop10(); }
 function setPTop10(p) { pTop10 = p; renderTop10(); }
+function setFiltTop10(v) { filtTop10 = v; pTop10 = 1; renderTop10(); }
 
 function renderInativos() {
-  const pg = dadosInativos.slice((pInativos-1)*limInativos, pInativos*limInativos);
+  const term = filtInativos.toLowerCase();
+  const filtered = term ? dadosInativos.filter(function(r) { return r.nome.toLowerCase().indexOf(term) >= 0; }) : dadosInativos;
+  const pg = filtered.slice((pInativos-1)*limInativos, pInativos*limInativos);
   document.getElementById('tbody_inativos').innerHTML = pg.length
     ? pg.map(function(r) {
         const d = r.dias_inativo;
@@ -244,13 +269,16 @@ function renderInativos() {
           + '</tr>';
       }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem inativos</td></tr>';
-  pagRow('pag_inativos', limInativos, pInativos, dadosInativos.length, 'setLimInativos', 'setPInativos');
+  pagRow('pag_inativos', limInativos, pInativos, filtered.length, 'setLimInativos', 'setPInativos');
 }
 function setLimInativos(n) { limInativos = n; pInativos = 1; renderInativos(); }
 function setPInativos(p) { pInativos = p; renderInativos(); }
+function setFiltInativos(v) { filtInativos = v; pInativos = 1; renderInativos(); }
 
 function renderProdPed() {
-  const pg = dadosProdPed.slice((pProdPed-1)*limProdPed, pProdPed*limProdPed);
+  const term = filtProdPed.toLowerCase();
+  const filtered = term ? dadosProdPed.filter(function(r) { return r.nome.toLowerCase().indexOf(term) >= 0; }) : dadosProdPed;
+  const pg = filtered.slice((pProdPed-1)*limProdPed, pProdPed*limProdPed);
   document.getElementById('tbody_prod_ped').innerHTML = pg.length
     ? pg.map(function(r, i) {
         return '<tr>'
@@ -261,13 +289,16 @@ function renderProdPed() {
           + '</tr>';
       }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  pagRow('pag_prod_ped', limProdPed, pProdPed, dadosProdPed.length, 'setLimProdPed', 'setPProdPed');
+  pagRow('pag_prod_ped', limProdPed, pProdPed, filtered.length, 'setLimProdPed', 'setPProdPed');
 }
 function setLimProdPed(n) { limProdPed = n; pProdPed = 1; renderProdPed(); }
 function setPProdPed(p) { pProdPed = p; renderProdPed(); }
+function setFiltProdPed(v) { filtProdPed = v; pProdPed = 1; renderProdPed(); }
 
 function renderProdVol() {
-  const pg = dadosProdVol.slice((pProdVol-1)*limProdVol, pProdVol*limProdVol);
+  const term = filtProdVol.toLowerCase();
+  const filtered = term ? dadosProdVol.filter(function(r) { return r.nome.toLowerCase().indexOf(term) >= 0; }) : dadosProdVol;
+  const pg = filtered.slice((pProdVol-1)*limProdVol, pProdVol*limProdVol);
   document.getElementById('tbody_prod_vol').innerHTML = pg.length
     ? pg.map(function(r, i) {
         return '<tr>'
@@ -278,17 +309,21 @@ function renderProdVol() {
           + '</tr>';
       }).join('')
     : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-  pagRow('pag_prod_vol', limProdVol, pProdVol, dadosProdVol.length, 'setLimProdVol', 'setPProdVol');
+  pagRow('pag_prod_vol', limProdVol, pProdVol, filtered.length, 'setLimProdVol', 'setPProdVol');
 }
 function setLimProdVol(n) { limProdVol = n; pProdVol = 1; renderProdVol(); }
 function setPProdVol(p) { pProdVol = p; renderProdVol(); }
+function setFiltProdVol(v) { filtProdVol = v; pProdVol = 1; renderProdVol(); }
 
 async function carregarProdutos(ini, fim) {
   try {
     const data = await apiFetch('/api/clientes/produtos?inicio=' + ini + '&fim=' + fim);
     dadosProdPed = data.por_pedidos || [];
     dadosProdVol = data.por_volume  || [];
-    limProdPed = 10; pProdPed = 1; limProdVol = 10; pProdVol = 1;
+    limProdPed = 10; pProdPed = 1; filtProdPed = '';
+    limProdVol = 10; pProdVol = 1; filtProdVol = '';
+    var fp = document.getElementById('inp_filt_prod_ped'); if (fp) fp.value = '';
+    var fv = document.getElementById('inp_filt_prod_vol'); if (fv) fv.value = '';
     renderProdPed(); renderProdVol();
   } catch(e) {
     ['tbody_prod_ped','tbody_prod_vol'].forEach(function(id) {
@@ -311,7 +346,8 @@ async function carregar() {
       ? (parseFloat(kpi.total_pedidos) / parseFloat(kpi.clientes_unicos)).toFixed(1) + 'x' : '--';
     document.getElementById('k_freq').textContent = freq;
     dadosTop10 = data.top10 || [];
-    limTop10 = 10; pTop10 = 1;
+    limTop10 = 10; pTop10 = 1; filtTop10 = '';
+    var fi = document.getElementById('inp_filt_top10'); if (fi) fi.value = '';
     renderTop10();
   } catch(e) {
     document.getElementById('tbody_top10').innerHTML =
@@ -324,7 +360,8 @@ async function carregarInativos() {
   document.getElementById('tbody_inativos').innerHTML =
     '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Consultando...</td></tr>';
   document.getElementById('pag_inativos').innerHTML = '';
-  limInativos = 10; pInativos = 1;
+  limInativos = 10; pInativos = 1; filtInativos = '';
+  var fn = document.getElementById('inp_filt_inativos'); if (fn) fn.value = '';
   try {
     const rows = await apiFetch('/api/clientes/inativos?dias=' + dias);
     const info = document.getElementById('inativos_info');
