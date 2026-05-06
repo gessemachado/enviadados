@@ -389,7 +389,7 @@ def clientes_resumo():
         SELECT
             s.id_cliente,
             COALESCE(c.cliente, s.id_cliente, 'Sem identificação') AS nome,
-            COUNT(*)                                               AS pedidos,
+            COUNT(DISTINCT s.numero_cupom)                         AS pedidos,
             SUM(s.sub_total)                                       AS total,
             SUM(s.sub_total) /
                 NULLIF(COUNT(*), 0)                                AS ticket_medio,
@@ -462,7 +462,7 @@ def clientes_produtos():
         SELECT
             COALESCE(s.descricao, s.codigo, s.id_produto) AS nome,
             s.codigo,
-            COUNT(*)                                      AS pedidos,
+            COUNT(DISTINCT s.numero_cupom)                AS pedidos,
             SUM(s.quantidade_vendida)                     AS quantidade,
             SUM(s.sub_total)                              AS total
         FROM saidas s
