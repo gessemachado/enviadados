@@ -377,7 +377,7 @@ def clientes_resumo():
             COUNT(DISTINCT s.id_cliente) FILTER (
                 WHERE s.id_cliente IS NOT NULL AND s.id_cliente <> '')              AS clientes_unicos,
             COALESCE(SUM(s.sub_total) /
-                NULLIF(COUNT(DISTINCT s.numero_cupom), 0), 0)                       AS ticket_medio,
+                NULLIF(COUNT(*), 0), 0)                                             AS ticket_medio,
             COALESCE(SUM(s.sub_total), 0)                                           AS total_periodo
         FROM saidas s
         WHERE s.data_venda BETWEEN %(inicio)s AND %(fim)s
@@ -392,7 +392,7 @@ def clientes_resumo():
             COUNT(DISTINCT s.numero_cupom)                         AS pedidos,
             SUM(s.sub_total)                                       AS total,
             SUM(s.sub_total) /
-                NULLIF(COUNT(DISTINCT s.numero_cupom), 0)          AS ticket_medio,
+                NULLIF(COUNT(*), 0)                                AS ticket_medio,
             MAX(s.data_venda)::date                                AS ultima_compra
         FROM saidas s
         LEFT JOIN clientes c
