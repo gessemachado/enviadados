@@ -472,8 +472,8 @@ def clientes_produtos():
           {t_clause}
         GROUP BY s.id_produto, s.descricao, s.codigo
     """
-    por_pedidos = _query(base + " ORDER BY pedidos DESC LIMIT 15", params)
-    por_volume  = _query(base + " ORDER BY total   DESC LIMIT 15", params)
+    por_pedidos = _query(base + " ORDER BY pedidos DESC LIMIT 50", params)
+    por_volume  = _query(base + " ORDER BY total   DESC LIMIT 50", params)
     return _ok({'por_pedidos': por_pedidos, 'por_volume': por_volume})
 
 

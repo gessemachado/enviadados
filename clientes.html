@@ -168,6 +168,7 @@ tailwind.config = {
             </tbody>
           </table>
         </div>
+        <div id="pag_top10"></div>
       </div>
 
       <!-- Clientes Inativos -->
@@ -187,7 +188,7 @@ tailwind.config = {
             </button>
           </div>
         </div>
-        <div class="overflow-x-auto max-h-80 overflow-y-auto">
+        <div class="overflow-x-auto">
           <table class="w-full text-xs">
             <thead>
               <tr class="border-b border-white/5 bg-surface-container-lowest">
@@ -202,6 +203,7 @@ tailwind.config = {
             </tbody>
           </table>
         </div>
+        <div id="pag_inativos"></div>
         <div id="inativos_footer" class="px-4 py-2 border-t border-white/5 text-[10px] text-gray-600 hidden"></div>
       </div>
 
@@ -231,6 +233,7 @@ tailwind.config = {
             </tbody>
           </table>
         </div>
+        <div id="pag_prod_ped"></div>
       </div>
 
       <!-- Por Volume -->
@@ -254,6 +257,7 @@ tailwind.config = {
             </tbody>
           </table>
         </div>
+        <div id="pag_prod_vol"></div>
       </div>
 
     </div>
@@ -324,31 +328,101 @@ const fmt  = (v, d=2) => v != null ? parseFloat(v).toLocaleString('pt-BR',{minim
 const fmtR = v => 'R$ ' + fmt(v);
 const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
 
+const PPP = 10;
+let pTop10=1, dadosTop10=[];
+let pInativos=1, dadosInativos=[];
+let pProdPed=1, dadosProdPed=[];
+let pProdVol=1, dadosProdVol=[];
+
+function pagUI(pagId, cur, total, fnName) {
+  const pages = Math.ceil(total / PPP);
+  const el = document.getElementById(pagId);
+  if (!el) return;
+  if (pages <= 1) { el.innerHTML = ''; return; }
+  const btn = 'w-7 h-7 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed';
+  el.innerHTML = `<div class="flex items-center justify-center gap-3 py-2.5 border-t border-white/5">
+    <button class="${btn}" ${cur<=1?'disabled':''} onclick="${fnName}(${cur-1})"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+    <span class="text-[11px] text-gray-500">${cur} / ${pages}</span>
+    <button class="${btn}" ${cur>=pages?'disabled':''} onclick="${fnName}(${cur+1})"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+  </div>`;
+}
+
+function renderTop10() {
+  const total = dadosTop10.length;
+  const pg = dadosTop10.slice((pTop10-1)*PPP, pTop10*PPP);
+  document.getElementById('tbody_top10').innerHTML = pg.length
+    ? pg.map((r, i) => `
+      <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
+        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pTop10-1)*PPP+i+1}</td>
+        <td class="px-4 py-2.5 text-white font-medium max-w-[140px] truncate" title="${r.nome}">${r.nome}</td>
+        <td class="px-4 py-2.5 text-gray-400 text-right">${r.pedidos}</td>
+        <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
+        <td class="px-4 py-2.5 text-gray-400 text-right">${fmtR(r.ticket_medio)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-600">Nenhum cliente identificado no período</td></tr>';
+  pagUI('pag_top10', pTop10, total, 'setTop10Page');
+}
+function setTop10Page(p) { pTop10 = p; renderTop10(); }
+
+function renderInativos() {
+  const total = dadosInativos.length;
+  const pg = dadosInativos.slice((pInativos-1)*PPP, pInativos*PPP);
+  document.getElementById('tbody_inativos').innerHTML = pg.length
+    ? pg.map(r => {
+        const diasN = r.dias_inativo;
+        const cor = diasN === null ? 'text-gray-500' : diasN > 180 ? 'text-red-400 font-bold' : diasN > 90 ? 'text-yellow-400' : 'text-gray-400';
+        return `<tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
+          <td class="px-4 py-2.5 text-white font-medium max-w-[150px] truncate" title="${r.nome}">${r.nome}</td>
+          <td class="px-4 py-2.5 text-gray-400 text-right">${fmtD(r.ultima_compra)}</td>
+          <td class="px-4 py-2.5 text-right ${cor}">${diasN != null ? diasN + 'd' : 'Nunca'}</td>
+          <td class="px-4 py-2.5 text-gray-400 text-right">${fmtR(r.total_gasto)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem inativos</td></tr>';
+  pagUI('pag_inativos', pInativos, total, 'setInativosPage');
+}
+function setInativosPage(p) { pInativos = p; renderInativos(); }
+
+function renderProdPed() {
+  const total = dadosProdPed.length;
+  const pg = dadosProdPed.slice((pProdPed-1)*PPP, pProdPed*PPP);
+  document.getElementById('tbody_prod_ped').innerHTML = pg.length
+    ? pg.map((r, i) => `
+      <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
+        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pProdPed-1)*PPP+i+1}</td>
+        <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
+        <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${r.pedidos}</td>
+        <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
+  pagUI('pag_prod_ped', pProdPed, total, 'setProdPedPage');
+}
+function setProdPedPage(p) { pProdPed = p; renderProdPed(); }
+
+function renderProdVol() {
+  const total = dadosProdVol.length;
+  const pg = dadosProdVol.slice((pProdVol-1)*PPP, pProdVol*PPP);
+  document.getElementById('tbody_prod_vol').innerHTML = pg.length
+    ? pg.map((r, i) => `
+      <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
+        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pProdVol-1)*PPP+i+1}</td>
+        <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
+        <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
+        <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
+  pagUI('pag_prod_vol', pProdVol, total, 'setProdVolPage');
+}
+function setProdVolPage(p) { pProdVol = p; renderProdVol(); }
+
 async function carregarProdutos(ini, fim) {
   try {
     const data = await apiFetch(`/api/clientes/produtos?inicio=${ini}&fim=${fim}`);
-    const ped = data.por_pedidos || [];
-    const vol = data.por_volume  || [];
-
-    document.getElementById('tbody_prod_ped').innerHTML = ped.length
-      ? ped.map((r, i) => `
-        <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-          <td class="px-4 py-2.5 text-gray-500 font-bold">${i+1}</td>
-          <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
-          <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${r.pedidos}</td>
-          <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
-
-    document.getElementById('tbody_prod_vol').innerHTML = vol.length
-      ? vol.map((r, i) => `
-        <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-          <td class="px-4 py-2.5 text-gray-500 font-bold">${i+1}</td>
-          <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
-          <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
-          <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
+    dadosProdPed = data.por_pedidos || [];
+    dadosProdVol = data.por_volume  || [];
+    pProdPed = 1; pProdVol = 1;
+    renderProdPed();
+    renderProdVol();
   } catch(e) {
     ['tbody_prod_ped','tbody_prod_vol'].forEach(id => {
       document.getElementById(id).innerHTML =
@@ -366,7 +440,6 @@ async function carregar() {
   try {
     const data = await apiFetch(`/api/clientes/resumo?inicio=${ini}&fim=${fim}`);
     const kpi = data.kpi || {};
-
     document.getElementById('k_ticket').textContent  = fmtR(kpi.ticket_medio);
     document.getElementById('k_pedidos').textContent = kpi.total_pedidos ?? '—';
     document.getElementById('k_unicos').textContent  = kpi.clientes_unicos ?? '—';
@@ -375,17 +448,9 @@ async function carregar() {
       : '—';
     document.getElementById('k_freq').textContent = freq === '—' ? '—' : freq + 'x';
 
-    const rows = data.top10 || [];
-    document.getElementById('tbody_top10').innerHTML = rows.length
-      ? rows.map((r, i) => `
-        <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-          <td class="px-4 py-2.5 text-gray-500 font-bold">${i+1}</td>
-          <td class="px-4 py-2.5 text-white font-medium max-w-[140px] truncate" title="${r.nome}">${r.nome}</td>
-          <td class="px-4 py-2.5 text-gray-400 text-right">${r.pedidos}</td>
-          <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
-          <td class="px-4 py-2.5 text-gray-400 text-right">${fmtR(r.ticket_medio)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-600">Nenhum cliente identificado no período</td></tr>';
+    dadosTop10 = data.top10 || [];
+    pTop10 = 1;
+    renderTop10();
   } catch(e) {
     document.getElementById('tbody_top10').innerHTML =
       `<tr><td colspan="5" class="px-4 py-6 text-center text-red-400">${e.message}</td></tr>`;
@@ -396,34 +461,27 @@ async function carregar() {
 
 async function carregarInativos() {
   const dias = parseInt(document.getElementById('inp_dias').value) || 60;
-  const tbody = document.getElementById('tbody_inativos');
-  tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Consultando...</td></tr>';
+  document.getElementById('tbody_inativos').innerHTML =
+    '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Consultando...</td></tr>';
+  document.getElementById('pag_inativos').innerHTML = '';
 
   try {
     const rows = await apiFetch(`/api/clientes/inativos?dias=${dias}`);
     const footer = document.getElementById('inativos_footer');
-
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-green-400">Nenhum cliente inativo há mais de ${dias} dias!</td></tr>`;
+      document.getElementById('tbody_inativos').innerHTML =
+        `<tr><td colspan="4" class="px-4 py-6 text-center text-green-400">Nenhum cliente inativo há mais de ${dias} dias!</td></tr>`;
       footer.classList.add('hidden');
       return;
     }
-
-    tbody.innerHTML = rows.map(r => {
-      const diasN = r.dias_inativo;
-      const cor = diasN === null ? 'text-gray-500' : diasN > 180 ? 'text-red-400 font-bold' : diasN > 90 ? 'text-yellow-400' : 'text-gray-400';
-      return `<tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-        <td class="px-4 py-2.5 text-white font-medium max-w-[150px] truncate" title="${r.nome}">${r.nome}</td>
-        <td class="px-4 py-2.5 text-gray-400 text-right">${fmtD(r.ultima_compra)}</td>
-        <td class="px-4 py-2.5 text-right ${cor}">${diasN != null ? diasN + 'd' : 'Nunca'}</td>
-        <td class="px-4 py-2.5 text-gray-400 text-right">${fmtR(r.total_gasto)}</td>
-      </tr>`;
-    }).join('');
-
+    dadosInativos = rows;
+    pInativos = 1;
+    renderInativos();
     footer.textContent = `${rows.length} cliente${rows.length !== 1 ? 's' : ''} inativo${rows.length !== 1 ? 's' : ''}`;
     footer.classList.remove('hidden');
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-red-400">${e.message}</td></tr>`;
+    document.getElementById('tbody_inativos').innerHTML =
+      `<tr><td colspan="4" class="px-4 py-6 text-center text-red-400">${e.message}</td></tr>`;
   }
 }
 

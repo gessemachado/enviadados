@@ -65,6 +65,7 @@
     <thead><tr><th>#</th><th>Cliente</th><th>Ped.</th><th>Total</th><th>Ticket</th></tr></thead>
     <tbody id="tbody_top10"></tbody>
   </table>
+  <div class="pag" id="pag_top10"></div>
 </div>
 
 <!-- Inativos -->
@@ -82,6 +83,7 @@
     <thead><tr><th>Cliente</th><th>Última Compra</th><th>Dias</th><th>Total Hist.</th></tr></thead>
     <tbody id="tbody_inativos"></tbody>
   </table>
+  <div class="pag" id="pag_inativos"></div>
   <div id="inativos_info" class="label" style="margin-top:.5rem;display:none"></div>
 </div>
 
@@ -96,6 +98,7 @@
       <tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Carregando...</td></tr>
     </tbody>
   </table>
+  <div class="pag" id="pag_prod_ped"></div>
 </div>
 
 <!-- Produtos por Volume -->
@@ -109,6 +112,7 @@
       <tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Carregando...</td></tr>
     </tbody>
   </table>
+  <div class="pag" id="pag_prod_vol"></div>
 </div>
 
 <nav class="bottom-nav">
@@ -149,7 +153,7 @@ async function apiFetch(url, opts = {}) {
   const tenant = sessionStorage.getItem('obs_tenant_filter');
   if (tenant) url += (url.includes('?') ? '&' : '?') + 'tenant_filter=' + tenant;
   const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}` } });
-  if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
+  if (r.status === 401) { logout(); throw new Error('Sessao expirada'); }
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
@@ -158,9 +162,7 @@ const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov'
 let anoAtual = new Date().getFullYear();
 let mesAtual = new Date().getMonth();
 
-function labelMes() {
-  document.getElementById('mes_label').textContent = `${MESES[mesAtual]}/${anoAtual}`;
-}
+function labelMes() { document.getElementById('mes_label').textContent = MESES[mesAtual] + '/' + anoAtual; }
 function mudarMes(d) {
   mesAtual += d;
   if (mesAtual < 0)  { mesAtual = 11; anoAtual--; }
@@ -168,42 +170,112 @@ function mudarMes(d) {
   labelMes(); carregar();
 }
 function periodoMes() {
-  const ini = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const ini = anoAtual + '-' + String(mesAtual+1).padStart(2,'0') + '-01';
   const ultimo = new Date(anoAtual, mesAtual+1, 0).getDate();
-  const fim = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${ultimo}`;
+  const fim = anoAtual + '-' + String(mesAtual+1).padStart(2,'0') + '-' + ultimo;
   return { ini, fim };
 }
 
-const fmtR = v => v != null ? 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
-const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
+const fmtR = v => v != null ? 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '--';
+const fmtD = s => s ? s.split('-').reverse().join('/') : '--';
+
+const PPP = 10;
+let pTop10=1, dadosTop10=[];
+let pInativos=1, dadosInativos=[];
+let pProdPed=1, dadosProdPed=[];
+let pProdVol=1, dadosProdVol=[];
+
+function renderPag(id, cur, total, setFn) {
+  const pages = Math.ceil(total / PPP);
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (pages <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML =
+    '<button class="pag-btn"' + (cur<=1?' disabled':'') + ' onclick="' + setFn + '(' + (cur-1) + ')">‹</button>' +
+    '<span class="pag-info">' + cur + ' / ' + pages + '</span>' +
+    '<button class="pag-btn"' + (cur>=pages?' disabled':'') + ' onclick="' + setFn + '(' + (cur+1) + ')">›</button>';
+}
+
+function renderTop10() {
+  const total = dadosTop10.length;
+  const pg = dadosTop10.slice((pTop10-1)*PPP, pTop10*PPP);
+  document.getElementById('tbody_top10').innerHTML = pg.length
+    ? pg.map((r, i) =>
+        '<tr>' +
+        '<td class="dim" style="font-weight:700">' + ((pTop10-1)*PPP+i+1) + '</td>' +
+        '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>' +
+        '<td class="dim">' + r.pedidos + '</td>' +
+        '<td class="accent" style="font-weight:700">' + fmtR(r.total) + '</td>' +
+        '<td class="dim">' + fmtR(r.ticket_medio) + '</td>' +
+        '</tr>').join('')
+    : '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
+  renderPag('pag_top10', pTop10, total, 'setTop10Page');
+}
+function setTop10Page(p) { pTop10 = p; renderTop10(); }
+
+function renderInativos() {
+  const total = dadosInativos.length;
+  const pg = dadosInativos.slice((pInativos-1)*PPP, pInativos*PPP);
+  document.getElementById('tbody_inativos').innerHTML = pg.length
+    ? pg.map(r => {
+        const d = r.dias_inativo;
+        const cor = d === null ? 'color:var(--text-off)' : d > 180 ? 'color:#f87171;font-weight:700' : d > 90 ? 'color:#facc15' : 'color:var(--text-dim)';
+        return '<tr>' +
+          '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>' +
+          '<td class="dim">' + fmtD(r.ultima_compra) + '</td>' +
+          '<td style="' + cor + '">' + (d != null ? d+'d' : 'Nunca') + '</td>' +
+          '<td class="dim">' + fmtR(r.total_gasto) + '</td>' +
+          '</tr>';
+      }).join('')
+    : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem inativos</td></tr>';
+  renderPag('pag_inativos', pInativos, total, 'setInativosPage');
+}
+function setInativosPage(p) { pInativos = p; renderInativos(); }
+
+function renderProdPed() {
+  const total = dadosProdPed.length;
+  const pg = dadosProdPed.slice((pProdPed-1)*PPP, pProdPed*PPP);
+  document.getElementById('tbody_prod_ped').innerHTML = pg.length
+    ? pg.map((r, i) =>
+        '<tr>' +
+        '<td class="dim" style="font-weight:700">' + ((pProdPed-1)*PPP+i+1) + '</td>' +
+        '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>' +
+        '<td class="accent" style="font-weight:700">' + r.pedidos + '</td>' +
+        '<td class="dim">' + Math.round(r.quantidade) + '</td>' +
+        '</tr>').join('')
+    : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
+  renderPag('pag_prod_ped', pProdPed, total, 'setProdPedPage');
+}
+function setProdPedPage(p) { pProdPed = p; renderProdPed(); }
+
+function renderProdVol() {
+  const total = dadosProdVol.length;
+  const pg = dadosProdVol.slice((pProdVol-1)*PPP, pProdVol*PPP);
+  document.getElementById('tbody_prod_vol').innerHTML = pg.length
+    ? pg.map((r, i) =>
+        '<tr>' +
+        '<td class="dim" style="font-weight:700">' + ((pProdVol-1)*PPP+i+1) + '</td>' +
+        '<td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.nome + '</td>' +
+        '<td class="accent" style="font-weight:700">' + fmtR(r.total) + '</td>' +
+        '<td class="dim">' + Math.round(r.quantidade) + '</td>' +
+        '</tr>').join('')
+    : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
+  renderPag('pag_prod_vol', pProdVol, total, 'setProdVolPage');
+}
+function setProdVolPage(p) { pProdVol = p; renderProdVol(); }
 
 async function carregarProdutos(ini, fim) {
   try {
-    const data = await apiFetch(`/api/clientes/produtos?inicio=${ini}&fim=${fim}`);
-    const ped = data.por_pedidos || [];
-    const vol = data.por_volume  || [];
-
-    document.getElementById('tbody_prod_ped').innerHTML = ped.length
-      ? ped.map((r, i) => `<tr>
-          <td class="dim" style="font-weight:700">${i+1}</td>
-          <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.nome}</td>
-          <td class="accent" style="font-weight:700">${r.pedidos}</td>
-          <td class="dim">${Math.round(r.quantidade)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
-
-    document.getElementById('tbody_prod_vol').innerHTML = vol.length
-      ? vol.map((r, i) => `<tr>
-          <td class="dim" style="font-weight:700">${i+1}</td>
-          <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.nome}</td>
-          <td class="accent" style="font-weight:700">${fmtR(r.total)}</td>
-          <td class="dim">${Math.round(r.quantidade)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
+    const data = await apiFetch('/api/clientes/produtos?inicio=' + ini + '&fim=' + fim);
+    dadosProdPed = data.por_pedidos || [];
+    dadosProdVol = data.por_volume  || [];
+    pProdPed = 1; pProdVol = 1;
+    renderProdPed();
+    renderProdVol();
   } catch(e) {
     ['tbody_prod_ped','tbody_prod_vol'].forEach(id => {
       document.getElementById(id).innerHTML =
-        `<tr><td colspan="4" style="color:#f87171;padding:1rem;text-align:center">${e.message}</td></tr>`;
+        '<tr><td colspan="4" style="color:#f87171;padding:1rem;text-align:center">' + e.message + '</td></tr>';
     });
   }
 }
@@ -212,57 +284,46 @@ async function carregar() {
   const { ini, fim } = periodoMes();
   carregarProdutos(ini, fim);
   try {
-    const data = await apiFetch(`/api/clientes/resumo?inicio=${ini}&fim=${fim}`);
+    const data = await apiFetch('/api/clientes/resumo?inicio=' + ini + '&fim=' + fim);
     const kpi = data.kpi || {};
     document.getElementById('k_ticket').textContent  = fmtR(kpi.ticket_medio);
-    document.getElementById('k_pedidos').textContent = kpi.total_pedidos ?? '—';
-    document.getElementById('k_unicos').textContent  = kpi.clientes_unicos ?? '—';
+    document.getElementById('k_pedidos').textContent = kpi.total_pedidos != null ? kpi.total_pedidos : '--';
+    document.getElementById('k_unicos').textContent  = kpi.clientes_unicos != null ? kpi.clientes_unicos : '--';
     const freq = kpi.clientes_unicos > 0
       ? (parseFloat(kpi.total_pedidos) / parseFloat(kpi.clientes_unicos)).toFixed(1) + 'x'
-      : '—';
+      : '--';
     document.getElementById('k_freq').textContent = freq;
 
-    const rows = data.top10 || [];
-    document.getElementById('tbody_top10').innerHTML = rows.length
-      ? rows.map((r, i) => `<tr>
-          <td class="dim" style="font-weight:700">${i+1}</td>
-          <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.nome}</td>
-          <td class="dim">${r.pedidos}</td>
-          <td class="accent" style="font-weight:700">${fmtR(r.total)}</td>
-          <td class="dim">${fmtR(r.ticket_medio)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
+    dadosTop10 = data.top10 || [];
+    pTop10 = 1;
+    renderTop10();
   } catch(e) {
     document.getElementById('tbody_top10').innerHTML =
-      `<tr><td colspan="5" style="color:#f87171;padding:1rem;text-align:center">${e.message}</td></tr>`;
+      '<tr><td colspan="5" style="color:#f87171;padding:1rem;text-align:center">' + e.message + '</td></tr>';
   }
 }
 
 async function carregarInativos() {
   const dias = parseInt(document.getElementById('inp_dias').value) || 60;
-  const tbody = document.getElementById('tbody_inativos');
-  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Consultando...</td></tr>';
+  document.getElementById('tbody_inativos').innerHTML =
+    '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Consultando...</td></tr>';
+  document.getElementById('pag_inativos').innerHTML = '';
   try {
-    const rows = await apiFetch(`/api/clientes/inativos?dias=${dias}`);
+    const rows = await apiFetch('/api/clientes/inativos?dias=' + dias);
     const info = document.getElementById('inativos_info');
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#4ade80;padding:1rem">Nenhum inativo há +${dias}d!</td></tr>`;
+      document.getElementById('tbody_inativos').innerHTML =
+        '<tr><td colspan="4" style="text-align:center;color:#4ade80;padding:1rem">Nenhum inativo ha +' + dias + 'd!</td></tr>';
       info.style.display = 'none'; return;
     }
-    tbody.innerHTML = rows.map(r => {
-      const d = r.dias_inativo;
-      const cor = d === null ? 'color:var(--text-off)' : d > 180 ? 'color:#f87171;font-weight:700' : d > 90 ? 'color:#facc15' : 'color:var(--text-dim)';
-      return `<tr>
-        <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.nome}</td>
-        <td class="dim">${fmtD(r.ultima_compra)}</td>
-        <td style="${cor}">${d != null ? d+'d' : 'Nunca'}</td>
-        <td class="dim">${fmtR(r.total_gasto)}</td>
-      </tr>`;
-    }).join('');
-    info.textContent = `${rows.length} cliente${rows.length!==1?'s':''} inativo${rows.length!==1?'s':''}`;
+    dadosInativos = rows;
+    pInativos = 1;
+    renderInativos();
+    info.textContent = rows.length + ' cliente' + (rows.length!==1?'s':'') + ' inativo' + (rows.length!==1?'s':'');
     info.style.display = 'block';
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="4" style="color:#f87171;padding:1rem;text-align:center">${e.message}</td></tr>`;
+    document.getElementById('tbody_inativos').innerHTML =
+      '<tr><td colspan="4" style="color:#f87171;padding:1rem;text-align:center">' + e.message + '</td></tr>';
   }
 }
 
