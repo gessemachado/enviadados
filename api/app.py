@@ -566,14 +566,14 @@ def relatorio_estoque():
     body        = request.json or {}
     data_inicio = body.get('data_inicio')
     data_fim    = body.get('data_fim')
-    grupos_ids  = body.get('grupos', [])
-    dif_max     = float(body.get('diferenca_max', 5))
+    grupos_nomes = body.get('grupos', [])
+    dif_max      = float(body.get('diferenca_max', 5))
 
     tenant = _tenant_filter()
     if tenant is None:
         tenant = int(body.get('id_tenant', 1))
 
-    if not data_inicio or not data_fim or not grupos_ids:
+    if not data_inicio or not data_fim or not grupos_nomes:
         return _err('data_inicio, data_fim e grupos são obrigatórios')
 
     dt0   = datetime.strptime(data_inicio, '%Y-%m-%d')
@@ -604,11 +604,11 @@ def relatorio_estoque():
         FROM vendas v
         JOIN produtos p ON p.id_produto = v.id_produto
         LEFT JOIN estoques e ON e.id_produto = v.id_produto
-        WHERE p.id_grupo = ANY(%s)
+        WHERE p.grupo = ANY(%s)
           AND (COALESCE(e.total,0) - (v.quant_vend/%s)*30) <= %s
         ORDER BY p.id_grupo, p.descricao
     """, (data_inicio, data_fim, tenant, tenant,
-          meses, dias, dias, dias, dias, grupos_ids, dias, dif_max))
+          meses, dias, dias, dias, dias, grupos_nomes, dias, dif_max))
     return _ok(rows)
 
 

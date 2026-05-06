@@ -266,7 +266,7 @@ async function carregarGrupos() {
   data.forEach(g => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.dataset.id = g.id_grupo;
+    btn.dataset.id = g.grupo;
     btn.dataset.selected = 'false';
     btn.className = 'grupo-pill px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-all select-none cursor-pointer bg-surface-container border-white/10 text-gray-500';
     btn.textContent = `${g.id_grupo} — ${g.grupo}`;
@@ -297,7 +297,7 @@ function selecionarTodos(val) {
 }
 
 async function executarConsulta() {
-  const grupos = [...document.querySelectorAll('.grupo-pill[data-selected="true"]')].map(b => parseInt(b.dataset.id));
+  const grupos = [...document.querySelectorAll('.grupo-pill[data-selected="true"]')].map(b => b.dataset.id);
   if (!grupos.length) { alert('Selecione pelo menos um grupo.'); return; }
 
   const icon = document.getElementById('icon_buscar');

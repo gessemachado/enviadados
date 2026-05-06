@@ -133,7 +133,7 @@ async function carregarGrupos() {
   (data||[]).forEach(g => {
     const btn = document.createElement('button');
     btn.className = 'pill pill--off';
-    btn.dataset.id = g.id_grupo;
+    btn.dataset.id = g.grupo;
     btn.dataset.sel = 'false';
     btn.textContent = `${g.id_grupo} — ${g.grupo}`;
     btn.onclick = () => togglePill(btn);
@@ -155,7 +155,7 @@ function selecionarTodos(v) {
 }
 
 async function consultar() {
-  const grupos = [...document.querySelectorAll('.pills-wrap .pill[data-sel="true"]')].map(b=>parseInt(b.dataset.id));
+  const grupos = [...document.querySelectorAll('.pills-wrap .pill[data-sel="true"]')].map(b=>b.dataset.id);
   if (!grupos.length) { alert('Selecione pelo menos um grupo.'); return; }
   const difMax = parseFloat(document.getElementById('difmax').value) || 5;
 
