@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Obsidian — Clientes</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#131312"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="stylesheet" href="obsidian.css"/>
+<style>
+.kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; padding:.75rem .875rem 0; }
+.section-head { display:flex; align-items:center; justify-content:space-between; padding:.75rem .875rem .4rem; }
+.section-title { font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-off); }
+.dias-wrap { display:flex; align-items:center; gap:.375rem; }
+.dias-wrap span { font-size:.6rem; color:var(--text-off); }
+</style>
+</head>
+<body class="page">
+
+<header class="topbar">
+  <button class="icon-btn" onclick="logout()"><span class="material-symbols-outlined" style="font-size:22px">logout</span></button>
+  <span class="topbar__title">Clientes</span>
+  <div class="topbar__nav">
+    <button onclick="mudarMes(-1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_left</span></button>
+    <span class="topbar__month" id="mes_label">—</span>
+    <button onclick="mudarMes(1)"><span class="material-symbols-outlined" style="font-size:20px">chevron_right</span></button>
+  </div>
+</header>
+
+<div id="loja_sel_wrap" style="display:none;padding:.5rem .875rem .25rem">
+  <select id="sel_loja" onchange="filtrarLoja(this.value)" class="inp inp--sm" style="width:100%">
+    <option value="">— Todas as lojas —</option>
+  </select>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="label">Ticket Médio</div>
+    <div class="kpi-val t-head" id="k_ticket">—</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">Pedidos</div>
+    <div class="kpi-val t-head" id="k_pedidos">—</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">Clientes Únicos</div>
+    <div class="kpi-val t-head" id="k_unicos">—</div>
+  </div>
+  <div class="kpi-card kpi-card--accent">
+    <div class="label">Freq. Média</div>
+    <div class="kpi-val kpi-val--accent t-head" id="k_freq">—</div>
+    <div class="kpi-sub">pedidos/cliente</div>
+  </div>
+</div>
+
+<!-- Top 10 -->
+<div class="section-head" style="margin-top:.75rem">
+  <span class="section-title">Top 10 por Valor</span>
+</div>
+<div class="scroll-x" style="padding:0 .875rem .5rem">
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Cliente</th><th>Ped.</th><th>Total</th><th>Ticket</th></tr></thead>
+    <tbody id="tbody_top10"></tbody>
+  </table>
+</div>
+
+<!-- Inativos -->
+<div class="section-head" style="margin-top:.5rem">
+  <span class="section-title">Inativos</span>
+  <div class="dias-wrap">
+    <span>Sem comprar há</span>
+    <input id="inp_dias" type="number" value="60" min="7" class="inp inp--sm" style="width:52px;text-align:center"/>
+    <span>dias</span>
+    <button onclick="carregarInativos()" class="pill pill--on" style="padding:.2rem .5rem;font-size:.6rem">Buscar</button>
+  </div>
+</div>
+<div class="scroll-x" style="padding:0 .875rem 1.5rem">
+  <table class="tbl">
+    <thead><tr><th>Cliente</th><th>Última Compra</th><th>Dias</th><th>Total Hist.</th></tr></thead>
+    <tbody id="tbody_inativos"></tbody>
+  </table>
+  <div id="inativos_info" class="label" style="margin-top:.5rem;display:none"></div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diário</span></a>
+  <a href="produtos.html" class="nav-item"><span class="material-symbols-outlined">bar_chart</span><span>Produtos</span></a>
+  <a href="financeiro.html" class="nav-item"><span class="material-symbols-outlined">payments</span><span>Financeiro</span></a>
+  <a href="clientes.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">group</span><span>Clientes</span></a>
+  <a href="projecao.html" class="nav-item"><span class="material-symbols-outlined">warehouse</span><span>Projeção</span></a>
+  <a href="perfil.html" class="nav-item"><span class="material-symbols-outlined">manage_accounts</span><span>Perfil</span></a>
+</nav>
+
+<script>
+if (!localStorage.getItem('obs_token')) location.href = 'login.html';
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); location.href = 'login.html'; }
+
+function filtrarLoja(v) {
+  if (v) sessionStorage.setItem('obs_tenant_filter', v);
+  else sessionStorage.removeItem('obs_tenant_filter');
+  location.reload();
+}
+async function initLojaSelector() {
+  const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
+  if (!u.admin) return;
+  const wrap = document.getElementById('loja_sel_wrap');
+  wrap.style.display = 'block';
+  try {
+    const lojas = await apiFetch('/api/lojas');
+    const sel = document.getElementById('sel_loja');
+    lojas.forEach(l => { const o = new Option(l.nome, l.id_tenant || ''); sel.appendChild(o); });
+    const saved = sessionStorage.getItem('obs_tenant_filter');
+    if (saved) sel.value = saved;
+  } catch(e) {}
+}
+async function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('obs_token');
+  const tenant = sessionStorage.getItem('obs_tenant_filter');
+  if (tenant) url += (url.includes('?') ? '&' : '?') + 'tenant_filter=' + tenant;
+  const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}` } });
+  if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+let anoAtual = new Date().getFullYear();
+let mesAtual = new Date().getMonth();
+
+function labelMes() {
+  document.getElementById('mes_label').textContent = `${MESES[mesAtual]}/${anoAtual}`;
+}
+function mudarMes(d) {
+  mesAtual += d;
+  if (mesAtual < 0)  { mesAtual = 11; anoAtual--; }
+  if (mesAtual > 11) { mesAtual = 0;  anoAtual++; }
+  labelMes(); carregar();
+}
+function periodoMes() {
+  const ini = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const ultimo = new Date(anoAtual, mesAtual+1, 0).getDate();
+  const fim = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${ultimo}`;
+  return { ini, fim };
+}
+
+const fmtR = v => v != null ? 'R$ ' + parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
+
+async function carregar() {
+  const { ini, fim } = periodoMes();
+  try {
+    const data = await apiFetch(`/api/clientes/resumo?inicio=${ini}&fim=${fim}`);
+    const kpi = data.kpi || {};
+    document.getElementById('k_ticket').textContent  = fmtR(kpi.ticket_medio);
+    document.getElementById('k_pedidos').textContent = kpi.total_pedidos ?? '—';
+    document.getElementById('k_unicos').textContent  = kpi.clientes_unicos ?? '—';
+    const freq = kpi.clientes_unicos > 0
+      ? (parseFloat(kpi.total_pedidos) / parseFloat(kpi.clientes_unicos)).toFixed(1) + 'x'
+      : '—';
+    document.getElementById('k_freq').textContent = freq;
+
+    const rows = data.top10 || [];
+    document.getElementById('tbody_top10').innerHTML = rows.length
+      ? rows.map((r, i) => `<tr>
+          <td class="dim" style="font-weight:700">${i+1}</td>
+          <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.nome}</td>
+          <td class="dim">${r.pedidos}</td>
+          <td class="accent" style="font-weight:700">${fmtR(r.total)}</td>
+          <td class="dim">${fmtR(r.ticket_medio)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem dados</td></tr>';
+  } catch(e) {
+    document.getElementById('tbody_top10').innerHTML =
+      `<tr><td colspan="5" style="color:#f87171;padding:1rem;text-align:center">${e.message}</td></tr>`;
+  }
+}
+
+async function carregarInativos() {
+  const dias = parseInt(document.getElementById('inp_dias').value) || 60;
+  const tbody = document.getElementById('tbody_inativos');
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-off);padding:1rem">Consultando...</td></tr>';
+  try {
+    const rows = await apiFetch(`/api/clientes/inativos?dias=${dias}`);
+    const info = document.getElementById('inativos_info');
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#4ade80;padding:1rem">Nenhum inativo há +${dias}d!</td></tr>`;
+      info.style.display = 'none'; return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const d = r.dias_inativo;
+      const cor = d === null ? 'color:var(--text-off)' : d > 180 ? 'color:#f87171;font-weight:700' : d > 90 ? 'color:#facc15' : 'color:var(--text-dim)';
+      return `<tr>
+        <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.nome}</td>
+        <td class="dim">${fmtD(r.ultima_compra)}</td>
+        <td style="${cor}">${d != null ? d+'d' : 'Nunca'}</td>
+        <td class="dim">${fmtR(r.total_gasto)}</td>
+      </tr>`;
+    }).join('');
+    info.textContent = `${rows.length} cliente${rows.length!==1?'s':''} inativo${rows.length!==1?'s':''}`;
+    info.style.display = 'block';
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="4" style="color:#f87171;padding:1rem;text-align:center">${e.message}</td></tr>`;
+  }
+}
+
+labelMes();
+carregar();
+carregarInativos();
+initLojaSelector();
+</script>
+</body>
+</html>

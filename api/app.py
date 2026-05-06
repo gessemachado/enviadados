@@ -357,6 +357,95 @@ def zerar_dados(id_loja):
     return _ok({'ok': True, 'id_tenant': tenant, 'deletados': totais})
 
 
+# ── Clientes ─────────────────────────────────────────────────────────────────
+
+@app.route('/api/clientes/resumo')
+@token_required
+def clientes_resumo():
+    inicio = request.args.get('inicio')
+    fim    = request.args.get('fim')
+    if not inicio or not fim:
+        return _err('inicio e fim são obrigatórios')
+
+    tenant = _tenant_filter()
+    t_clause = "" if tenant is None else "AND s.id_tenant = %(tenant)s"
+    params = {'inicio': inicio, 'fim': fim + ' 23:59:59', 'tenant': tenant}
+
+    kpi = _query(f"""
+        SELECT
+            COUNT(DISTINCT s.numero_cupom)                                          AS total_pedidos,
+            COUNT(DISTINCT s.id_cliente) FILTER (
+                WHERE s.id_cliente IS NOT NULL AND s.id_cliente <> '')              AS clientes_unicos,
+            COALESCE(SUM(s.sub_total) /
+                NULLIF(COUNT(DISTINCT s.numero_cupom), 0), 0)                       AS ticket_medio,
+            COALESCE(SUM(s.sub_total), 0)                                           AS total_periodo
+        FROM saidas s
+        WHERE s.data_venda BETWEEN %(inicio)s AND %(fim)s
+          AND s.operacao = 'V' AND s.quantidade_vendida > 0
+          {t_clause}
+    """, params)
+
+    top10 = _query(f"""
+        SELECT
+            s.id_cliente,
+            COALESCE(c.cliente, s.id_cliente, 'Sem identificação') AS nome,
+            COUNT(DISTINCT s.numero_cupom)                         AS pedidos,
+            SUM(s.sub_total)                                       AS total,
+            SUM(s.sub_total) /
+                NULLIF(COUNT(DISTINCT s.numero_cupom), 0)          AS ticket_medio,
+            MAX(s.data_venda)::date                                AS ultima_compra
+        FROM saidas s
+        LEFT JOIN clientes c
+               ON c.id_cliente = s.id_cliente
+              AND c.id_tenant  = s.id_tenant
+        WHERE s.data_venda BETWEEN %(inicio)s AND %(fim)s
+          AND s.operacao = 'V' AND s.quantidade_vendida > 0
+          AND s.id_cliente IS NOT NULL AND s.id_cliente <> ''
+          {t_clause}
+        GROUP BY s.id_cliente, c.cliente
+        ORDER BY total DESC
+        LIMIT 10
+    """, params)
+
+    return _ok({'kpi': kpi[0] if kpi else {}, 'top10': top10})
+
+
+@app.route('/api/clientes/inativos')
+@token_required
+def clientes_inativos():
+    dias = int(request.args.get('dias', 60))
+    tenant = _tenant_filter()
+    t_clause = "" if tenant is None else "AND c.id_tenant = %(tenant)s"
+    t_clause_s = "" if tenant is None else "AND s.id_tenant = %(tenant)s"
+    params = {'dias': dias, 'tenant': tenant}
+
+    rows = _query(f"""
+        SELECT
+            c.id_cliente,
+            c.cliente                                              AS nome,
+            c.cgc_cpf,
+            COALESCE(c.celular, c.telefone, '')                   AS contato,
+            MAX(s.data_venda)::date                               AS ultima_compra,
+            CURRENT_DATE - MAX(s.data_venda)::date                AS dias_inativo,
+            COUNT(DISTINCT s.numero_cupom)                        AS total_pedidos,
+            COALESCE(SUM(s.sub_total), 0)                         AS total_gasto
+        FROM clientes c
+        LEFT JOIN saidas s
+               ON s.id_cliente = c.id_cliente
+              AND s.operacao = 'V' AND s.quantidade_vendida > 0
+              {t_clause_s}
+        WHERE c.ativo IN ('S','1','true','t')
+          {t_clause}
+        GROUP BY c.id_cliente, c.cliente, c.cgc_cpf, c.celular, c.telefone
+        HAVING MAX(s.data_venda) < CURRENT_DATE - %(dias)s
+            OR MAX(s.data_venda) IS NULL
+        ORDER BY dias_inativo DESC NULLS LAST
+        LIMIT 100
+    """, params)
+
+    return _ok(rows)
+
+
 # ── Saídas ────────────────────────────────────────────────────────────────────
 
 @app.route('/api/saidas')

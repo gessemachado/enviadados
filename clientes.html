@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html class="dark" lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Obsidian — Clientes</title>
+<script src="auth.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-container-highest": "#353534",
+        "surface-container-high":    "#2a2a2a",
+        "surface-container":         "#201f1f",
+        "surface-container-low":     "#1c1b1b",
+        "surface-container-lowest":  "#0e0e0e",
+        "surface":                   "#131313",
+        "on-surface":                "#e5e2e1",
+        "primary-container":         "#ff6600",
+        "on-primary-container":      "#561d00",
+      },
+      fontFamily: { headline: ["Manrope"], body: ["Inter"] }
+    }
+  }
+}
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align:middle; }
+  body { font-family:'Inter',sans-serif; }
+  h1,h2,h3 { font-family:'Manrope',sans-serif; }
+  thead th { position:sticky; top:0; z-index:10; }
+</style>
+</head>
+<body class="bg-surface text-on-surface antialiased flex">
+
+<!-- Sidebar -->
+<div id="sidebar_overlay" onclick="toggleSidebar()" class="hidden fixed inset-0 bg-black/60 z-30 md:hidden"></div>
+<aside id="sidebar" class="flex flex-col border-r border-white/5 bg-[#0e0e0e] h-screen w-72 fixed left-0 top-0 z-40 -translate-x-full md:translate-x-0 transition-transform duration-300 font-['Manrope'] uppercase tracking-widest text-[10px]">
+  <div class="p-8 flex items-center gap-3">
+    <div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center">
+      <span class="material-symbols-outlined text-white" style="font-variation-settings:'FILL' 1;">grid_view</span>
+    </div>
+    <div>
+      <h1 class="text-[#FF6600] font-black text-sm">Obsidian</h1>
+      <p class="text-gray-500 text-[9px] tracking-widest">Analytical Suite</p>
+    </div>
+  </div>
+  <nav class="flex-1 px-4">
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="calendario_vendas.html">
+      <span class="material-symbols-outlined mr-3">calendar_view_month</span><span>Diário de Operações</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="produtos.html">
+      <span class="material-symbols-outlined mr-3">bar_chart</span><span>Produtos</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="financeiro.html">
+      <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
+    </a>
+    <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="clientes.html">
+      <span class="material-symbols-outlined mr-3">group</span><span>Clientes</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
+      <span class="material-symbols-outlined mr-3">inventory_2</span><span>Projeção de Compras</span>
+    </a>
+    <a id="link_admin" class="hidden items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="admin.html">
+      <span class="material-symbols-outlined mr-3">admin_panel_settings</span><span>Admin</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="perfil.html">
+      <span class="material-symbols-outlined mr-3">manage_accounts</span><span>Meu Perfil</span>
+    </a>
+  </nav>
+  <div id="loja_sel_wrap" class="hidden px-4 pb-3">
+    <p class="text-[9px] font-semibold text-gray-600 uppercase tracking-widest mb-1.5 px-1">Loja</p>
+    <select id="sel_loja" onchange="filtrarLoja(this.value)"
+      class="w-full bg-[#111110] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#FF6600]/50">
+      <option value="">— Todas as lojas —</option>
+    </select>
+  </div>
+  <div class="p-4 border-t border-white/5">
+    <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2.5 text-gray-500 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-xs">
+      <span class="material-symbols-outlined text-base">logout</span>Sair
+    </button>
+  </div>
+</aside>
+<script>try{const u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(u.admin)document.getElementById('link_admin').classList.replace('hidden','flex');}catch(e){}</script>
+
+<!-- Main -->
+<main class="ml-0 md:ml-72 flex-1 flex flex-col h-screen overflow-hidden">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between px-4 md:px-8 py-4 md:py-5 border-b border-white/5 bg-surface-container-lowest shrink-0">
+    <div class="flex items-center gap-3">
+      <button onclick="toggleSidebar()" class="md:hidden p-2 text-gray-400 hover:text-white">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+      <div>
+        <h2 class="text-base md:text-lg font-black text-white font-['Manrope']">Clientes</h2>
+        <p class="text-xs text-gray-500 mt-0.5 hidden md:block">Análise de comportamento de compra</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="mudarMes(-1)" class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all">
+        <span class="material-symbols-outlined text-base">chevron_left</span>
+      </button>
+      <span id="label_mes" class="text-sm font-bold text-white font-['Manrope'] w-40 text-center"></span>
+      <button onclick="mudarMes(1)" class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all">
+        <span class="material-symbols-outlined text-base">chevron_right</span>
+      </button>
+      <button onclick="carregar()" class="w-8 h-8 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all">
+        <span class="material-symbols-outlined text-base" id="icon_sync">sync</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Conteúdo -->
+  <div class="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl p-4">
+        <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-widest mb-2">Ticket Médio</p>
+        <p class="text-xl font-black text-white font-['Manrope']" id="k_ticket">—</p>
+        <p class="text-[10px] text-gray-500 mt-1">por pedido no período</p>
+      </div>
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl p-4">
+        <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-widest mb-2">Pedidos</p>
+        <p class="text-xl font-black text-white font-['Manrope']" id="k_pedidos">—</p>
+        <p class="text-[10px] text-gray-500 mt-1">no período</p>
+      </div>
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl p-4">
+        <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-widest mb-2">Clientes Únicos</p>
+        <p class="text-xl font-black text-white font-['Manrope']" id="k_unicos">—</p>
+        <p class="text-[10px] text-gray-500 mt-1">compraram no período</p>
+      </div>
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl p-4">
+        <p class="text-[9px] font-semibold text-gray-500 uppercase tracking-widest mb-2">Frequência Média</p>
+        <p class="text-xl font-black text-white font-['Manrope']" id="k_freq">—</p>
+        <p class="text-[10px] text-gray-500 mt-1">pedidos/cliente no período</p>
+      </div>
+    </div>
+
+    <!-- Top 10 + Inativos -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Top 10 Clientes -->
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-white/5 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[#FF6600] text-base" style="font-variation-settings:'FILL' 1">emoji_events</span>
+          <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Top 10 por Valor</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-white/5 bg-surface-container-lowest">
+                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">#</th>
+                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Cliente</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Pedidos</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Total</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Ticket</th>
+              </tr>
+            </thead>
+            <tbody id="tbody_top10">
+              <tr><td colspan="5" class="px-4 py-6 text-center text-gray-600">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Clientes Inativos -->
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-yellow-500 text-base" style="font-variation-settings:'FILL' 1">warning</span>
+            <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Inativos</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-gray-500">Sem comprar há mais de</span>
+            <input id="inp_dias" type="number" value="60" min="7"
+              class="w-14 bg-surface-container border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-[#FF6600]/50"/>
+            <span class="text-[10px] text-gray-500">dias</span>
+            <button onclick="carregarInativos()" class="w-7 h-7 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all">
+              <span class="material-symbols-outlined text-sm">search</span>
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto max-h-80 overflow-y-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-white/5 bg-surface-container-lowest">
+                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest sticky top-0 bg-surface-container-lowest">Cliente</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest sticky top-0 bg-surface-container-lowest">Última Compra</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest sticky top-0 bg-surface-container-lowest">Dias</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest sticky top-0 bg-surface-container-lowest">Total Hist.</th>
+              </tr>
+            </thead>
+            <tbody id="tbody_inativos">
+              <tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="inativos_footer" class="px-4 py-2 border-t border-white/5 text-[10px] text-gray-600 hidden"></div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script>
+function toggleSidebar() {
+  const s = document.getElementById('sidebar');
+  const o = document.getElementById('sidebar_overlay');
+  const open = s.classList.contains('-translate-x-full');
+  s.classList.toggle('-translate-x-full', !open);
+  o.classList.toggle('hidden', !open);
+}
+function logout() { localStorage.removeItem('obs_token'); localStorage.removeItem('obs_user'); window.location.replace('/login.html'); }
+
+function filtrarLoja(v) {
+  if (v) sessionStorage.setItem('obs_tenant_filter', v);
+  else sessionStorage.removeItem('obs_tenant_filter');
+  location.reload();
+}
+async function initLojaSelector() {
+  const u = JSON.parse(localStorage.getItem('obs_user') || '{}');
+  if (!u.admin) return;
+  document.getElementById('loja_sel_wrap').classList.remove('hidden');
+  try {
+    const lojas = await apiFetch('/api/lojas');
+    const sel = document.getElementById('sel_loja');
+    lojas.forEach(l => { const o = new Option(l.nome, l.id_tenant || ''); sel.appendChild(o); });
+    const saved = sessionStorage.getItem('obs_tenant_filter');
+    if (saved) sel.value = saved;
+  } catch(e) {}
+}
+async function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('obs_token');
+  const tenant = sessionStorage.getItem('obs_tenant_filter');
+  if (tenant) url += (url.includes('?') ? '&' : '?') + 'tenant_filter=' + tenant;
+  const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'Authorization': `Bearer ${token}` } });
+  if (r.status === 401) { logout(); throw new Error('Sessão expirada'); }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+               'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+let anoAtual  = new Date().getFullYear();
+let mesAtual  = new Date().getMonth();
+
+function labelMes() {
+  document.getElementById('label_mes').textContent = `${MESES[mesAtual]} ${anoAtual}`;
+}
+function mudarMes(d) {
+  mesAtual += d;
+  if (mesAtual < 0)  { mesAtual = 11; anoAtual--; }
+  if (mesAtual > 11) { mesAtual = 0;  anoAtual++; }
+  labelMes();
+  carregar();
+}
+function periodoMes() {
+  const ini = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-01`;
+  const ultimo = new Date(anoAtual, mesAtual+1, 0).getDate();
+  const fim = `${anoAtual}-${String(mesAtual+1).padStart(2,'0')}-${ultimo}`;
+  return { ini, fim };
+}
+
+const fmt  = (v, d=2) => v != null ? parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}) : '—';
+const fmtR = v => 'R$ ' + fmt(v);
+const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
+
+async function carregar() {
+  const { ini, fim } = periodoMes();
+  const sync = document.getElementById('icon_sync');
+  sync.classList.add('animate-spin');
+
+  try {
+    const data = await apiFetch(`/api/clientes/resumo?inicio=${ini}&fim=${fim}`);
+    const kpi = data.kpi || {};
+
+    document.getElementById('k_ticket').textContent  = fmtR(kpi.ticket_medio);
+    document.getElementById('k_pedidos').textContent = kpi.total_pedidos ?? '—';
+    document.getElementById('k_unicos').textContent  = kpi.clientes_unicos ?? '—';
+    const freq = kpi.clientes_unicos > 0
+      ? (parseFloat(kpi.total_pedidos) / parseFloat(kpi.clientes_unicos)).toFixed(1)
+      : '—';
+    document.getElementById('k_freq').textContent = freq === '—' ? '—' : freq + 'x';
+
+    const rows = data.top10 || [];
+    document.getElementById('tbody_top10').innerHTML = rows.length
+      ? rows.map((r, i) => `
+        <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
+          <td class="px-4 py-2.5 text-gray-500 font-bold">${i+1}</td>
+          <td class="px-4 py-2.5 text-white font-medium max-w-[140px] truncate" title="${r.nome}">${r.nome}</td>
+          <td class="px-4 py-2.5 text-gray-400 text-right">${r.pedidos}</td>
+          <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
+          <td class="px-4 py-2.5 text-gray-400 text-right">${fmtR(r.ticket_medio)}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-600">Nenhum cliente identificado no período</td></tr>';
+  } catch(e) {
+    document.getElementById('tbody_top10').innerHTML =
+      `<tr><td colspan="5" class="px-4 py-6 text-center text-red-400">${e.message}</td></tr>`;
+  } finally {
+    sync.classList.remove('animate-spin');
+  }
+}
+
+async function carregarInativos() {
+  const dias = parseInt(document.getElementById('inp_dias').value) || 60;
+  const tbody = document.getElementById('tbody_inativos');
+  tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Consultando...</td></tr>';
+
+  try {
+    const rows = await apiFetch(`/api/clientes/inativos?dias=${dias}`);
+    const footer = document.getElementById('inativos_footer');
+
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-green-400">Nenhum cliente inativo há mais de ${dias} dias!</td></tr>`;
+      footer.classList.add('hidden');
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const diasN = r.dias_inativo;
+      const cor = diasN === null ? 'text-gray-500' : diasN > 180 ? 'text-red-400 font-bold' : diasN > 90 ? 'text-yellow-400' : 'text-gray-400';
+      return `<tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
+        <td class="px-4 py-2.5 text-white font-medium max-w-[150px] truncate" title="${r.nome}">${r.nome}</td>
+        <td class="px-4 py-2.5 text-gray-400 text-right">${fmtD(r.ultima_compra)}</td>
+        <td class="px-4 py-2.5 text-right ${cor}">${diasN != null ? diasN + 'd' : 'Nunca'}</td>
+        <td class="px-4 py-2.5 text-gray-400 text-right">${fmtR(r.total_gasto)}</td>
+      </tr>`;
+    }).join('');
+
+    footer.textContent = `${rows.length} cliente${rows.length !== 1 ? 's' : ''} inativo${rows.length !== 1 ? 's' : ''}`;
+    footer.classList.remove('hidden');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-red-400">${e.message}</td></tr>`;
+  }
+}
+
+labelMes();
+carregar();
+carregarInativos();
+initLojaSelector();
+</script>
+</body>
+</html>
