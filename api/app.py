@@ -373,7 +373,7 @@ def clientes_resumo():
 
     kpi = _query(f"""
         SELECT
-            COUNT(DISTINCT s.numero_cupom)                                          AS total_pedidos,
+            COUNT(DISTINCT s.nota_fiscal)                                          AS total_pedidos,
             COUNT(DISTINCT s.id_cliente) FILTER (
                 WHERE s.id_cliente IS NOT NULL AND s.id_cliente <> '')              AS clientes_unicos,
             COALESCE(SUM(s.sub_total) /
@@ -389,7 +389,7 @@ def clientes_resumo():
         SELECT
             s.id_cliente,
             COALESCE(c.cliente, s.id_cliente, 'Sem identificação') AS nome,
-            COUNT(DISTINCT s.numero_cupom)                         AS pedidos,
+            COUNT(DISTINCT s.nota_fiscal)                         AS pedidos,
             SUM(s.sub_total)                                       AS total,
             SUM(s.sub_total) /
                 NULLIF(COUNT(*), 0)                                AS ticket_medio,
@@ -427,7 +427,7 @@ def clientes_inativos():
             COALESCE(c.celular, c.telefone, '')                   AS contato,
             MAX(s.data_venda)::date                               AS ultima_compra,
             CURRENT_DATE - MAX(s.data_venda)::date                AS dias_inativo,
-            COUNT(DISTINCT s.numero_cupom)                        AS total_pedidos,
+            COUNT(DISTINCT s.nota_fiscal)                        AS total_pedidos,
             COALESCE(SUM(s.sub_total), 0)                         AS total_gasto
         FROM clientes c
         LEFT JOIN saidas s
@@ -462,7 +462,7 @@ def clientes_produtos():
         SELECT
             COALESCE(s.descricao, s.codigo, s.id_produto) AS nome,
             s.codigo,
-            COUNT(DISTINCT s.numero_cupom)                AS pedidos,
+            COUNT(DISTINCT s.nota_fiscal)                AS pedidos,
             SUM(s.quantidade_vendida)                     AS quantidade,
             SUM(s.sub_total)                              AS total
         FROM saidas s
