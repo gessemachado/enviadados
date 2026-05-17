@@ -63,7 +63,7 @@ tailwind.config = {
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="financeiro.html">
       <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
     </a>
-    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="clientes.html" style="display:none">
+    <a id="link_clientes" class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="clientes.html" style="display:none">
       <span class="material-symbols-outlined mr-3">group</span><span>Clientes</span>
     </a>
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
@@ -89,7 +89,7 @@ tailwind.config = {
     </button>
   </div>
 </aside>
-<script>try{const u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(u.admin)document.getElementById('link_admin').classList.replace('hidden','flex');}catch(e){}</script>
+<script>try{const u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(u.admin)document.getElementById('link_admin').classList.replace('hidden','flex');if(u.admin||(u.nome||'').toLowerCase().includes('gess'))document.getElementById('link_clientes').style.display='flex';}catch(e){}</script>
 
 <!-- Main -->
 <main class="ml-0 md:ml-72 flex-1 flex flex-col h-screen overflow-hidden">
@@ -230,6 +230,75 @@ tailwind.config = {
       </div>
     </div>
 
+    <!-- Produtos por Pedidos + por Volume -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Por Pedidos -->
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-white/5 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[#FF6600] text-base" style="font-variation-settings:'FILL' 1">shopping_cart</span>
+          <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Produtos por Pedidos</h3>
+        </div>
+        <div class="px-4 py-2 border-b border-white/5">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">search</span>
+            <input id="inp_filt_prod_ped" type="text" placeholder="Filtrar produto..."
+              class="w-full bg-surface-container border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"
+              oninput="setFiltProdPed(this.value)"/>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-white/5 bg-surface-container-lowest">
+                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">#</th>
+                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Produto</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Pedidos</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Qtd</th>
+              </tr>
+            </thead>
+            <tbody id="tbody_prod_ped">
+              <tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="pag_prod_ped"></div>
+      </div>
+
+      <!-- Por Volume -->
+      <div class="bg-surface-container-low border border-white/5 rounded-2xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-white/5 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[#FF6600] text-base" style="font-variation-settings:'FILL' 1">trending_up</span>
+          <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Produtos por Volume</h3>
+        </div>
+        <div class="px-4 py-2 border-b border-white/5">
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">search</span>
+            <input id="inp_filt_prod_vol" type="text" placeholder="Filtrar produto..."
+              class="w-full bg-surface-container border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"
+              oninput="setFiltProdVol(this.value)"/>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="border-b border-white/5 bg-surface-container-lowest">
+                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">#</th>
+                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Produto</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Total</th>
+                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Qtd</th>
+              </tr>
+            </thead>
+            <tbody id="tbody_prod_vol">
+              <tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="pag_prod_vol"></div>
+      </div>
+
+    </div>
+
   </div>
 </main>
 
@@ -283,6 +352,96 @@ function brl(v) {
 function fmtQtd(v) {
   return parseFloat(v||0).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2});
 }
+const fmt  = (v, d=2) => v != null ? parseFloat(v).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d}) : '—';
+const fmtR = v => 'R$ ' + fmt(v);
+
+let limProdPed=10, pProdPed=1, dadosProdPed=[], filtProdPed='';
+let limProdVol=10, pProdVol=1, dadosProdVol=[], filtProdVol='';
+
+function pagUI(pagId, lim, page, total, limFn, pagFn) {
+  const el = document.getElementById(pagId);
+  if (!el) return;
+  if (!total) { el.innerHTML = ''; return; }
+  const pages = Math.ceil(total / lim);
+  const from  = (page-1)*lim + 1;
+  const to    = Math.min(page*lim, total);
+  const limBtn = n => {
+    const cls = n === lim
+      ? 'w-7 h-7 rounded-lg text-[11px] font-bold bg-[#FF6600] text-white'
+      : 'w-7 h-7 rounded-lg text-[11px] font-bold text-gray-400 hover:text-white bg-surface-container border border-white/10 hover:border-[#FF6600]/50 transition-all';
+    return `<button class="${cls}" onclick="${limFn}(${n})">${n}</button>`;
+  };
+  const navBtn = (dis, fn, icon) => {
+    const cls = 'w-7 h-7 flex items-center justify-center rounded-lg bg-surface-container border border-white/10 hover:border-[#FF6600]/50 text-gray-400 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed';
+    return `<button class="${cls}" ${dis?'disabled':''} onclick="${fn}"><span class="material-symbols-outlined text-sm">${icon}</span></button>`;
+  };
+  el.innerHTML = `<div class="flex items-center gap-2 px-4 py-2.5 border-t border-white/5">
+    <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Linhas</span>
+    <div class="flex gap-1">${[10,20,30].map(limBtn).join('')}</div>
+    <div class="flex items-center gap-1.5 ml-auto">
+      ${navBtn(page<=1, `${pagFn}(${page-1})`, 'chevron_left')}
+      <span class="text-[11px] text-gray-500">${from}–${to} de ${total}</span>
+      ${navBtn(page>=pages, `${pagFn}(${page+1})`, 'chevron_right')}
+    </div>
+  </div>`;
+}
+
+function renderProdPed() {
+  const term = filtProdPed.toLowerCase();
+  const filtered = term ? dadosProdPed.filter(r => r.nome.toLowerCase().includes(term)) : dadosProdPed;
+  const pg = filtered.slice((pProdPed-1)*limProdPed, pProdPed*limProdPed);
+  document.getElementById('tbody_prod_ped').innerHTML = pg.length
+    ? pg.map((r, i) => `
+      <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
+        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pProdPed-1)*limProdPed+i+1}</td>
+        <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
+        <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${r.pedidos}</td>
+        <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
+  pagUI('pag_prod_ped', limProdPed, pProdPed, filtered.length, 'setLimProdPed', 'setPProdPed');
+}
+function setLimProdPed(n) { limProdPed = n; pProdPed = 1; renderProdPed(); }
+function setPProdPed(p) { pProdPed = p; renderProdPed(); }
+function setFiltProdPed(v) { filtProdPed = v; pProdPed = 1; renderProdPed(); }
+
+function renderProdVol() {
+  const term = filtProdVol.toLowerCase();
+  const filtered = term ? dadosProdVol.filter(r => r.nome.toLowerCase().includes(term)) : dadosProdVol;
+  const pg = filtered.slice((pProdVol-1)*limProdVol, pProdVol*limProdVol);
+  document.getElementById('tbody_prod_vol').innerHTML = pg.length
+    ? pg.map((r, i) => `
+      <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
+        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pProdVol-1)*limProdVol+i+1}</td>
+        <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
+        <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
+        <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
+  pagUI('pag_prod_vol', limProdVol, pProdVol, filtered.length, 'setLimProdVol', 'setPProdVol');
+}
+function setLimProdVol(n) { limProdVol = n; pProdVol = 1; renderProdVol(); }
+function setPProdVol(p) { pProdVol = p; renderProdVol(); }
+function setFiltProdVol(v) { filtProdVol = v; pProdVol = 1; renderProdVol(); }
+
+async function carregarProdutos(ini, fim) {
+  try {
+    const data = await apiFetch(`/api/clientes/produtos?inicio=${ini}&fim=${fim}`);
+    dadosProdPed = data.por_pedidos || [];
+    dadosProdVol = data.por_volume  || [];
+    limProdPed = 10; pProdPed = 1; filtProdPed = '';
+    limProdVol = 10; pProdVol = 1; filtProdVol = '';
+    const fp = document.getElementById('inp_filt_prod_ped'); if (fp) fp.value = '';
+    const fv = document.getElementById('inp_filt_prod_vol'); if (fv) fv.value = '';
+    renderProdPed();
+    renderProdVol();
+  } catch(e) {
+    ['tbody_prod_ped','tbody_prod_vol'].forEach(id => {
+      document.getElementById(id).innerHTML =
+        `<tr><td colspan="4" class="px-4 py-6 text-center text-red-400">${e.message}</td></tr>`;
+    });
+  }
+}
 
 function mudarMes(delta) {
   mesAtual += delta;
@@ -304,6 +463,7 @@ async function carregarMes() {
   const strInicioAnt = `${dtMesAnt.getFullYear()}-${String(dtMesAnt.getMonth()+1).padStart(2,'0')}-01`;
 
   // Busca saidas (mês anterior + mês atual) + cadastros em paralelo
+  carregarProdutos(strInicio, strFim);
   const [allData, prods, estoques] = await Promise.all([
     apiFetch(`/api/saidas?inicio=${strInicioAnt}&fim=${strFim}`).catch(() => []),
     apiFetch('/api/produtos').catch(() => []),

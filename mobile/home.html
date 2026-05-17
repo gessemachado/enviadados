@@ -126,14 +126,15 @@
   <a href="home.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">calendar_month</span><span>Diário</span></a>
   <a href="produtos.html" class="nav-item"><span class="material-symbols-outlined">bar_chart</span><span>Produtos</span></a>
   <a href="financeiro.html" class="nav-item"><span class="material-symbols-outlined">payments</span><span>Financeiro</span></a>
-  <a href="clientes.html" class="nav-item" style="display:none"><span class="material-symbols-outlined">group</span><span>Clientes</span></a>
+  <a id="link_clientes" href="clientes.html" class="nav-item" style="display:none"><span class="material-symbols-outlined">group</span><span>Clientes</span></a>
   <a href="projecao.html" class="nav-item"><span class="material-symbols-outlined">warehouse</span><span>Projeção</span></a>
   <a href="perfil.html" class="nav-item"><span class="material-symbols-outlined">manage_accounts</span><span>Perfil</span></a>
 </nav>
 
 <script>
-if (!localStorage.getItem('obs_session')) location.href = 'login.html';
+if (!localStorage.getItem('obs_token')) location.href = 'login.html';
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+try{const _u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(_u.admin||(_u.nome||'').toLowerCase().includes('gess')){const _lc=document.getElementById('link_clientes');if(_lc)_lc.style.display='flex';}}catch(e){}
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const MESES3 = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];

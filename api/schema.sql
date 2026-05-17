@@ -216,6 +216,9 @@ ON CONFLICT (email) DO NOTHING;
 -- ── Migração: adicionar id_tenant às tabelas existentes ───────────────────────
 -- Seguro executar múltiplas vezes (ADD COLUMN IF NOT EXISTS)
 
+-- ── Migração: adicionar PB (peso bruto) à tabela produtos ────────────────────
+ALTER TABLE produtos        ADD COLUMN IF NOT EXISTS pb NUMERIC(15,3);
+
 ALTER TABLE saidas          ADD COLUMN IF NOT EXISTS id_tenant INTEGER;
 ALTER TABLE estoque         ADD COLUMN IF NOT EXISTS id_tenant INTEGER;
 ALTER TABLE produtos        ADD COLUMN IF NOT EXISTS id_tenant INTEGER;

@@ -64,10 +64,15 @@
 
 <!-- Resultado -->
 <div id="resultado" style="display:none">
-  <div class="section-head"><span class="section-title" id="res_titulo">Resultado</span></div>
+  <div class="section-head" style="display:flex;align-items:center;justify-content:space-between;padding-right:.875rem">
+    <span class="section-title" id="res_titulo">Resultado</span>
+    <button onclick="gerarPedidoPDF()" style="display:flex;align-items:center;gap:6px;background:#FF6600;color:white;border:none;border-radius:8px;padding:6px 14px;font-size:.7rem;font-weight:700;cursor:pointer">
+      <span class="material-symbols-outlined" style="font-size:16px">picture_as_pdf</span> PDF
+    </button>
+  </div>
   <div class="scroll-x" style="padding:0 .875rem 1.5rem">
     <table class="tbl">
-      <thead><tr><th>Código</th><th>Produto</th><th>Estoque</th><th>Méd/Mês</th><th>Diferença</th></tr></thead>
+      <thead><tr><th>Código</th><th>Produto</th><th>Estoque</th><th>Méd/Mês</th><th>Diferença</th><th>PB</th><th>Kg Total</th></tr></thead>
       <tbody id="tbody_res"></tbody>
     </table>
     <div class="pag" id="pag_res"></div>
@@ -78,7 +83,7 @@
   <a href="home.html" class="nav-item"><span class="material-symbols-outlined">calendar_month</span><span>Diário</span></a>
   <a href="produtos.html" class="nav-item"><span class="material-symbols-outlined">bar_chart</span><span>Produtos</span></a>
   <a href="financeiro.html" class="nav-item"><span class="material-symbols-outlined">payments</span><span>Financeiro</span></a>
-  <a href="clientes.html" class="nav-item" style="display:none"><span class="material-symbols-outlined">group</span><span>Clientes</span></a>
+  <a id="link_clientes" href="clientes.html" class="nav-item" style="display:none"><span class="material-symbols-outlined">group</span><span>Clientes</span></a>
   <a href="projecao.html" class="nav-item nav-item--active"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">warehouse</span><span>Projeção</span></a>
   <a href="perfil.html" class="nav-item"><span class="material-symbols-outlined">manage_accounts</span><span>Perfil</span></a>
 </nav>
@@ -86,6 +91,7 @@
 <script>
 if (!localStorage.getItem('obs_token')) location.href = 'login.html';
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+try{const _u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(_u.admin||(_u.nome||'').toLowerCase().includes('gess')){const _lc=document.getElementById('link_clientes');if(_lc)_lc.style.display='flex';}}catch(e){}
 
 let dadosRes = [], pRes = 1;
 const PPP = 15;
@@ -166,6 +172,7 @@ async function consultar() {
   try {
     const res = await apiFetch('/api/relatorio_estoque', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         data_inicio:   iniPeriodo,
         data_fim:      hojeStr,
@@ -173,7 +180,7 @@ async function consultar() {
         id_loja:       1,
         diferenca_max: difMax,
       }),
-    }).then(r => r.json());
+    });
 
     dadosRes = (res || []).sort((a, b) => parseFloat(a.diferenca ?? 0) - parseFloat(b.diferenca ?? 0));
     pRes = 1;
@@ -204,8 +211,10 @@ function renderRes() {
       <td class="dim">${fmt(r.estoque_atual,1)}</td>
       <td class="dim">${fmt(r.med_mensal,1)}</td>
       <td ${diffCls}>${fmt(r.diferenca,1)}</td>
+      <td class="dim">${r.pb > 0 ? fmt(r.pb,3) : '—'}</td>
+      <td style="${r.peso_total > 0 ? 'color:#fdba74;font-weight:600' : 'color:var(--text-off)'}">${r.peso_total > 0 ? fmt(r.peso_total,1) : '—'}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-off);padding:1rem">Sem resultados</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-off);padding:1rem">Sem resultados</td></tr>';
 
   const pages = Math.ceil(total/PPP);
   const pag = document.getElementById('pag_res');
@@ -214,6 +223,93 @@ function renderRes() {
     <button class="pag-btn" ${pRes<=1?'disabled':''} onclick="pRes--;renderRes()">‹</button>
     <span class="pag-info">${pRes} / ${pages}</span>
     <button class="pag-btn" ${pRes>=pages?'disabled':''} onclick="pRes++;renderRes()">›</button>`;
+}
+
+function gerarPedidoPDF() {
+  if (!dadosRes.length && !dadosRes.length) { alert('Consulte os dados primeiro.'); return; }
+  const todos = dadosRes;
+  if (!todos.length) { alert('Consulte os dados primeiro.'); return; }
+
+  const soNegativos = confirm('Imprimir apenas itens com diferença negativa?\n\nOK = Somente negativos\nCancelar = Todos os itens');
+  const itens = soNegativos ? todos.filter(r => parseFloat(r.diferenca) < 0) : todos;
+  if (!itens.length) { alert('Nenhum item com diferença negativa encontrado.'); return; }
+
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const fmt = (v, d=2) => v != null && v !== '' ? parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:d, maximumFractionDigits:d}) : '—';
+  const fmtD = d => d ? d.split('-').reverse().join('/') : '';
+  const pesoGeral = itens.reduce((s, r) => s + (parseFloat(r.peso_total) || 0), 0);
+
+  const grupos = {};
+  itens.forEach(r => {
+    if (!grupos[r.id_grupo]) grupos[r.id_grupo] = { id: r.id_grupo, nome: r.grupo, itens: [] };
+    grupos[r.id_grupo].itens.push(r);
+  });
+
+  const gruposHtml = Object.values(grupos).map(g => `
+    <div style="margin-bottom:24px">
+      <div style="display:inline-block;background:#FF6600;color:white;padding:3px 14px;border-radius:999px;font-size:11px;font-weight:700;margin-bottom:10px">${g.id} — ${g.nome}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="border-bottom:2px solid #e5e7eb">
+          ${['CÓDIGO','DESCRIÇÃO','EST. ATUAL','DIFERENÇA','PB (KG)','PESO TOTAL'].map((h,i)=>
+            `<th style="padding:5px 6px;color:#6b7280;font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;text-align:${i<=1?'left':'right'}">${h}</th>`
+          ).join('')}
+        </tr></thead>
+        <tbody>${g.itens.map((r,i) => {
+          const diff = parseFloat(r.diferenca);
+          const dc = diff < 0 ? '#dc2626' : diff <= 2 ? '#ea580c' : '#374151';
+          return `<tr style="border-bottom:1px solid #f3f4f6;background:${i%2?'#f9fafb':'white'}">
+            <td style="padding:7px 6px;font-family:monospace;color:#9ca3af;font-size:10px">${r.codigo||''}</td>
+            <td style="padding:7px 6px;font-weight:700;color:#111827">${r.descricao||''}</td>
+            <td style="padding:7px 6px;text-align:right;color:#374151">${fmt(r.estoque_atual,0)}</td>
+            <td style="padding:7px 6px;text-align:right;color:${dc};font-weight:${diff<0?700:400}">${fmt(r.diferenca,2)}</td>
+            <td style="padding:7px 6px;text-align:right;color:#6b7280">${r.pb > 0 ? fmt(r.pb,3) : '—'}</td>
+            <td style="padding:7px 6px;text-align:right;font-weight:700;color:#111827">${r.peso_total > 0 ? fmt(r.peso_total,2) : '—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Pedido de Compra</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Inter',sans-serif;color:#111827;background:white;padding:32px}
+      @media print{body{padding:20px} @page{margin:1cm}}
+    </style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+      <div>
+        <h1 style="font-family:'Manrope',sans-serif;font-size:24px;font-weight:900;margin-bottom:3px">Pedido de Compra</h1>
+        <p style="font-size:12px;color:#9ca3af">Projeção de Compras · Análise dos últimos 12 meses</p>
+      </div>
+    </div>
+    <div style="border:1px solid #e5e7eb;border-radius:10px;padding:16px 24px;display:flex;flex-wrap:wrap;gap:32px;margin-bottom:28px">
+      <div><div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Período</div>
+        <div style="font-size:13px;font-weight:700">${fmtD(iniPeriodo)} até ${fmtD(hojeStr)}</div></div>
+      <div><div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Data do Pedido</div>
+        <div style="font-size:13px;font-weight:700">${hoje}</div></div>
+      <div><div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Total de Itens</div>
+        <div style="font-size:13px;font-weight:700">${itens.length} produto${itens.length!==1?'s':''}</div></div>
+    </div>
+    ${gruposHtml}
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb">
+      <p style="font-size:10px;color:#9ca3af;max-width:300px;line-height:1.6">* Itens com diferença negativa indicam necessidade de reposição de estoque. Sujeito a confirmação do fornecedor.</p>
+      <div style="text-align:right">
+        <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Peso Total Geral</div>
+        <div style="font-size:28px;font-weight:900;font-family:'Manrope',sans-serif">${fmt(pesoGeral,2)} kg</div>
+      </div>
+    </div>
+    <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `pedido_compra_${hojeStr}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 carregarGrupos();

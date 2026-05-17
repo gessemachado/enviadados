@@ -1,4 +1,4 @@
-const CACHE = 'obsidian-v4';
+const CACHE = 'obsidian-v5';
 const ASSETS = [
   '/mobile/login.html',
   '/mobile/home.html',

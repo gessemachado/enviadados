@@ -64,7 +64,7 @@ tailwind.config = {
     <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="financeiro.html">
       <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
     </a>
-    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="clientes.html" style="display:none">
+    <a id="link_clientes" class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="clientes.html" style="display:none">
       <span class="material-symbols-outlined mr-3">group</span><span>Clientes</span>
     </a>
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
@@ -90,7 +90,7 @@ tailwind.config = {
     </button>
   </div>
 </aside>
-<script>try{const u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(u.admin)document.getElementById('link_admin').classList.replace('hidden','flex');}catch(e){}</script>
+<script>try{const u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(u.admin)document.getElementById('link_admin').classList.replace('hidden','flex');if(u.admin||(u.nome||'').toLowerCase().includes('gess'))document.getElementById('link_clientes').style.display='flex';}catch(e){}</script>
 
 <!-- Main -->
 <main class="ml-0 md:ml-72 flex-1 flex flex-col h-screen overflow-hidden">
@@ -570,7 +570,7 @@ function renderPaginacaoBtns(containerId, pagAtual, nPaginas, onPage) {
 
 function renderGraficoVend() {
   const sorted = [...dadosVendedores].sort((a,b) => b.total - a.total);
-  const labels = sorted.map(v => abrevNome(v.nome));
+  const labels = sorted.map(v => (v.nome || '').split(' ')[0]);
   const valores = sorted.map(v => v.total);
 
   document.getElementById('chart_vend_status').classList.add('hidden');
@@ -647,7 +647,7 @@ function renderTabelaVend() {
     tr.className = (i%2===0 ? 'bg-surface-container-low/20' : '') +
       ' border-b border-white/5 hover:bg-surface-container transition-colors';
     tr.innerHTML = `
-      <td class="px-4 py-3 text-gray-200 font-medium">${abrevNome(v.nome)}</td>
+      <td class="px-4 py-3 text-gray-200 font-medium">${v.nome || '—'}</td>
       <td class="px-4 py-3 text-right text-gray-300">${v.qtd.toLocaleString('pt-BR')}</td>
       <td class="px-4 py-3 text-right font-semibold text-white">${brl(v.total)}</td>
       <td class="px-4 py-3 text-right">

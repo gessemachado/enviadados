@@ -600,7 +600,9 @@ def relatorio_estoque():
                ROUND(((v.quant_vend / %s) * 15)::numeric, 2)    AS est_de_segur,
                ROUND(((v.quant_vend / %s) * 30)::numeric, 2)    AS est_maxi,
                COALESCE(e.total, 0)                              AS estoque_atual,
-               ROUND((COALESCE(e.total,0)-(v.quant_vend/%s)*30)::numeric, 2) AS diferenca
+               ROUND((COALESCE(e.total,0)-(v.quant_vend/%s)*30)::numeric, 2) AS diferenca,
+               COALESCE(p.pb, 0)                                 AS pb,
+               ROUND((GREATEST(0, -1*(COALESCE(e.total,0)-(v.quant_vend/%s)*30)) * COALESCE(p.pb, 0))::numeric, 2) AS peso_total
         FROM vendas v
         JOIN produtos p ON p.id_produto = v.id_produto
         LEFT JOIN estoques e ON e.id_produto = v.id_produto
@@ -608,7 +610,7 @@ def relatorio_estoque():
           AND (COALESCE(e.total,0) - (v.quant_vend/%s)*30) <= %s
         ORDER BY p.id_grupo, p.descricao
     """, (data_inicio, data_fim, tenant, tenant,
-          meses, dias, dias, dias, dias, grupos_nomes, dias, dif_max))
+          meses, dias, dias, dias, dias, dias, grupos_nomes, dias, dif_max))
     return _ok(rows)
 
 

@@ -96,7 +96,7 @@ TABELAS = {
     },
     'produtos': {
         'query': """SELECT ID_PRODUTO, CODIGO, DESCRICAO, UNIDADE, PRECO, CUSTO_MEDIO,
-                    EST_MINIMO, ID_GRUPO, GRUPO, ID_FORNECEDOR, ATIVO, SECAO, QTD_M3
+                    EST_MINIMO, ID_GRUPO, GRUPO, ID_FORNECEDOR, ATIVO, SECAO, QTD_M3, PB
                     FROM PRODUTOS ORDER BY ID_PRODUTO""",
         'delta': None, 'padrao': None,
     },

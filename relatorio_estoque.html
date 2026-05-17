@@ -45,13 +45,10 @@ tailwind.config = {
   h1,h2,h3,.headline { font-family: 'Manrope', sans-serif; }
   thead th { position: sticky; top: 0; z-index: 10; }
   @media print {
-    aside, .no-print { display: none !important; }
-    body { background: white; font-size: 9px; color: black; }
-    #tabela th, #tabela td { padding: 2px 4px !important; color: black; background: white !important; }
-    #tabela thead { background: #374151 !important; color: white !important; }
-    .print-title { display: block !important; }
+    body > *:not(#pedido-compra) { display: none !important; }
+    #pedido-compra { display: block !important; }
+    body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
-  .print-title { display: none; }
 </style>
 </head>
 <body class="bg-surface text-on-surface antialiased flex">
@@ -77,7 +74,7 @@ tailwind.config = {
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="financeiro.html">
       <span class="material-symbols-outlined mr-3">payments</span><span>Financeiro</span>
     </a>
-    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="clientes.html" style="display:none">
+    <a id="link_clientes" class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="clientes.html" style="display:none">
       <span class="material-symbols-outlined mr-3">group</span><span>Clientes</span>
     </a>
     <a class="flex items-center px-4 py-3 bg-gradient-to-br from-[#FF6600] to-[#561d00] text-white rounded-lg mb-2 shadow-lg shadow-orange-950/20" href="relatorio_estoque.html">
@@ -104,7 +101,7 @@ tailwind.config = {
     </button>
   </div>
 </aside>
-<script>try{const u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(u.admin)document.getElementById('link_admin').classList.replace('hidden','flex');}catch(e){}</script>
+<script>try{const u=JSON.parse(localStorage.getItem('obs_user')||'{}');if(u.admin)document.getElementById('link_admin').classList.replace('hidden','flex');if(u.admin||(u.nome||'').toLowerCase().includes('gess'))document.getElementById('link_clientes').style.display='flex';}catch(e){}</script>
 
 <!-- Overlay mobile -->
 <div id="sidebar_overlay" onclick="toggleSidebar()" class="hidden fixed inset-0 bg-black/60 z-30 md:hidden"></div>
@@ -202,6 +199,8 @@ tailwind.config = {
             <th class="px-3 py-2.5 text-right whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Est Máx.</th>
             <th class="px-3 py-2.5 text-right whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Est Atual</th>
             <th class="px-3 py-2.5 text-right whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Diferença</th>
+            <th class="px-3 py-2.5 text-right whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">PB</th>
+            <th class="px-3 py-2.5 text-right whitespace-nowrap font-semibold uppercase tracking-wider text-[10px] bg-surface-container-high">Peso Total</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -210,6 +209,8 @@ tailwind.config = {
   </div>
 
 </main>
+
+<div id="pedido-compra" style="display:none"></div>
 
 <script>
 function filtrarLoja(v) {
@@ -362,7 +363,7 @@ function renderTabela(dados, params) {
       linhaAlt   = false;
       const trG  = document.createElement('tr');
       trG.className = 'bg-[#FF6600]/10 border-b border-[#FF6600]/20';
-      trG.innerHTML = `<td colspan="12" class="px-4 py-2 font-black text-[10px] tracking-widest text-[#FF6600] uppercase">
+      trG.innerHTML = `<td colspan="13" class="px-4 py-2 font-black text-[10px] tracking-widest text-[#FF6600] uppercase">
         ${r.id_grupo} — ${r.grupo?.toUpperCase()}
       </td>`;
       tbody.appendChild(trG);
@@ -391,6 +392,8 @@ function renderTabela(dados, params) {
       <td class="px-3 py-1.5 text-right text-gray-400">${fmt(r.est_maxi)}</td>
       <td class="px-3 py-1.5 text-right font-semibold text-white">${fmt(r.estoque_atual, 0)}</td>
       <td class="px-3 py-1.5 text-right ${diffCls}">${fmt(r.diferenca)}</td>
+      <td class="px-3 py-1.5 text-right text-gray-500">${r.pb > 0 ? fmt(r.pb, 3) : ''}</td>
+      <td class="px-3 py-1.5 text-right font-semibold ${r.peso_total > 0 ? 'text-orange-300' : 'text-gray-700'}">${r.peso_total > 0 ? fmt(r.peso_total, 2) : ''}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -434,15 +437,93 @@ function exportarExcel() {
     'Est Máximo':    parseFloat(r.est_maxi) || 0,
     'Projeção de Compras Atual': parseFloat(r.estoque_atual) || 0,
     'Diferença':     parseFloat(r.diferenca) || 0,
+    'PB':            parseFloat(r.pb) || 0,
+    'Peso Total':    parseFloat(r.peso_total) || 0,
   }));
   const ws = XLSX.utils.json_to_sheet(linhas);
-  ws['!cols'] = [{wch:20},{wch:12},{wch:40},{wch:5},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12},{wch:12},{wch:14},{wch:12}];
+  ws['!cols'] = [{wch:20},{wch:12},{wch:40},{wch:5},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12},{wch:12},{wch:14},{wch:10},{wch:12}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Projeção de Compras');
   XLSX.writeFile(wb, `estoque_projecao_${dataInicio}_${dataFim}.xlsx`);
 }
 
-function imprimirPDF() { window.print(); }
+function imprimirPDF() {
+  if (!dadosAtuais.length) { alert('Consulte os dados primeiro.'); return; }
+
+  const soNegativos = confirm('Imprimir apenas itens com diferença negativa?\n\nOK = Somente negativos\nCancelar = Todos os itens');
+  const itensFiltrados = soNegativos ? dadosAtuais.filter(r => parseFloat(r.diferenca) < 0) : dadosAtuais;
+  if (!itensFiltrados.length) { alert('Nenhum item com diferença negativa encontrado.'); return; }
+
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const totalItens = itensFiltrados.length;
+  const pesoGeral = itensFiltrados.reduce((s, r) => s + (parseFloat(r.peso_total) || 0), 0);
+
+  const grupos = {};
+  itensFiltrados.forEach(r => {
+    if (!grupos[r.id_grupo]) grupos[r.id_grupo] = { id: r.id_grupo, nome: r.grupo, itens: [] };
+    grupos[r.id_grupo].itens.push(r);
+  });
+
+  const gruposHtml = Object.values(grupos).map(g => `
+    <div style="margin-bottom:28px">
+      <div style="display:inline-block;background:#FF6600;color:white;padding:4px 16px;border-radius:999px;font-size:11px;font-weight:700;margin-bottom:12px">${g.id} — ${g.nome}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead>
+          <tr style="border-bottom:2px solid #e5e7eb">
+            ${['CÓDIGO','DESCRIÇÃO','EST. ATUAL','DIFERENÇA','PB (KG)','PESO TOTAL'].map((h,i) =>
+              `<th style="padding:6px 8px;color:#6b7280;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-align:${i<=1?'left':'right'}">${h}</th>`
+            ).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${g.itens.map((r, i) => {
+            const diff = parseFloat(r.diferenca);
+            const dc = diff < 0 ? '#dc2626' : diff <= 2 ? '#ea580c' : '#374151';
+            const bg = i % 2 ? '#f9fafb' : 'white';
+            return `<tr style="border-bottom:1px solid #f3f4f6;background:${bg}">
+              <td style="padding:8px;font-family:monospace;color:#9ca3af;font-size:10px">${r.codigo||''}</td>
+              <td style="padding:8px;font-weight:700;color:#111827">${r.descricao||''}</td>
+              <td style="padding:8px;text-align:right;color:#374151">${fmt(r.estoque_atual,0)}</td>
+              <td style="padding:8px;text-align:right;color:${dc};font-weight:${diff<0?700:400}">${fmt(r.diferenca,2)}</td>
+              <td style="padding:8px;text-align:right;color:#6b7280">${r.pb > 0 ? fmt(r.pb,3) : '—'}</td>
+              <td style="padding:8px;text-align:right;font-weight:700;color:#111827">${r.peso_total > 0 ? fmt(r.peso_total,2) : '—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+
+  document.getElementById('pedido-compra').innerHTML = `
+    <div style="font-family:'Inter',sans-serif;color:#111827;padding:36px;background:white;min-height:100vh">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">
+        <div>
+          <h1 style="font-family:'Manrope',sans-serif;font-size:26px;font-weight:900;color:#111827;margin:0 0 4px">Pedido de Compra</h1>
+          <p style="font-size:12px;color:#9ca3af;margin:0">Projeção de Compras · Análise dos últimos 12 meses</p>
+        </div>
+      </div>
+
+      <div style="border:1px solid #e5e7eb;border-radius:12px;padding:18px 28px;display:flex;gap:48px;margin-bottom:32px">
+        <div><div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Período</div>
+          <div style="font-size:14px;font-weight:700;color:#111827">${fmtBR(dataInicio)} até ${fmtBR(dataFim)}</div></div>
+        <div><div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Data do Pedido</div>
+          <div style="font-size:14px;font-weight:700;color:#111827">${hoje}</div></div>
+        <div><div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">Total de Itens</div>
+          <div style="font-size:14px;font-weight:700;color:#111827">${totalItens} produto${totalItens!==1?'s':''}</div></div>
+      </div>
+
+      ${gruposHtml}
+
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:28px;padding-top:20px;border-top:1px solid #e5e7eb">
+        <p style="font-size:10px;color:#9ca3af;max-width:320px;line-height:1.6;margin:0">* Itens com diferença negativa indicam necessidade de reposição de estoque. Sujeito a confirmação do fornecedor.</p>
+        <div style="text-align:right">
+          <div style="font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Peso Total Geral</div>
+          <div style="font-size:30px;font-weight:900;font-family:'Manrope',sans-serif;color:#111827">${fmt(pesoGeral,2)} kg</div>
+        </div>
+      </div>
+    </div>`;
+
+  window.print();
+}
 
 function toggleSidebar() {
   const s = document.getElementById('sidebar');

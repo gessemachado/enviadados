@@ -5,7 +5,7 @@ pip install fdb requests pyinstaller --quiet
 
 pyinstaller --onefile --name SyncAgent --distpath dist ^
     --add-data "config.ini;." ^
-    src/main.py
+    syncagent.py
 
 echo.
 echo === Build concluido ===

@@ -225,75 +225,6 @@ tailwind.config = {
 
     </div>
 
-    <!-- Produtos por Pedidos + por Volume -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-      <!-- Por Pedidos -->
-      <div class="bg-surface-container-low border border-white/5 rounded-2xl overflow-hidden">
-        <div class="px-5 py-4 border-b border-white/5 flex items-center gap-2">
-          <span class="material-symbols-outlined text-[#FF6600] text-base" style="font-variation-settings:'FILL' 1">shopping_cart</span>
-          <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Produtos por Pedidos</h3>
-        </div>
-        <div class="px-4 py-2 border-b border-white/5">
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">search</span>
-            <input id="inp_filt_prod_ped" type="text" placeholder="Filtrar produto..."
-              class="w-full bg-surface-container border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"
-              oninput="setFiltProdPed(this.value)"/>
-          </div>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs">
-            <thead>
-              <tr class="border-b border-white/5 bg-surface-container-lowest">
-                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">#</th>
-                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Produto</th>
-                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Pedidos</th>
-                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Qtd</th>
-              </tr>
-            </thead>
-            <tbody id="tbody_prod_ped">
-              <tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Carregando...</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div id="pag_prod_ped"></div>
-      </div>
-
-      <!-- Por Volume -->
-      <div class="bg-surface-container-low border border-white/5 rounded-2xl overflow-hidden">
-        <div class="px-5 py-4 border-b border-white/5 flex items-center gap-2">
-          <span class="material-symbols-outlined text-[#FF6600] text-base" style="font-variation-settings:'FILL' 1">trending_up</span>
-          <h3 class="text-sm font-black text-white font-['Manrope'] uppercase tracking-widest">Produtos por Volume</h3>
-        </div>
-        <div class="px-4 py-2 border-b border-white/5">
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">search</span>
-            <input id="inp_filt_prod_vol" type="text" placeholder="Filtrar produto..."
-              class="w-full bg-surface-container border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#FF6600]/50"
-              oninput="setFiltProdVol(this.value)"/>
-          </div>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs">
-            <thead>
-              <tr class="border-b border-white/5 bg-surface-container-lowest">
-                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">#</th>
-                <th class="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Produto</th>
-                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Total</th>
-                <th class="text-right px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Qtd</th>
-              </tr>
-            </thead>
-            <tbody id="tbody_prod_vol">
-              <tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Carregando...</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div id="pag_prod_vol"></div>
-      </div>
-
-    </div>
-
   </div>
 </main>
 
@@ -362,8 +293,6 @@ const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
 
 let limTop10=10, pTop10=1, dadosTop10=[], filtTop10='';
 let limInativos=10, pInativos=1, dadosInativos=[], filtInativos='';
-let limProdPed=10, pProdPed=1, dadosProdPed=[], filtProdPed='';
-let limProdVol=10, pProdVol=1, dadosProdVol=[], filtProdVol='';
 
 function pagUI(pagId, lim, page, total, limFn, pagFn) {
   const el = document.getElementById(pagId);
@@ -435,69 +364,11 @@ function setLimInativos(n) { limInativos = n; pInativos = 1; renderInativos(); }
 function setPInativos(p) { pInativos = p; renderInativos(); }
 function setFiltInativos(v) { filtInativos = v; pInativos = 1; renderInativos(); }
 
-function renderProdPed() {
-  const term = filtProdPed.toLowerCase();
-  const filtered = term ? dadosProdPed.filter(r => r.nome.toLowerCase().includes(term)) : dadosProdPed;
-  const pg = filtered.slice((pProdPed-1)*limProdPed, pProdPed*limProdPed);
-  document.getElementById('tbody_prod_ped').innerHTML = pg.length
-    ? pg.map((r, i) => `
-      <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pProdPed-1)*limProdPed+i+1}</td>
-        <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
-        <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${r.pedidos}</td>
-        <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
-      </tr>`).join('')
-    : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
-  pagUI('pag_prod_ped', limProdPed, pProdPed, filtered.length, 'setLimProdPed', 'setPProdPed');
-}
-function setLimProdPed(n) { limProdPed = n; pProdPed = 1; renderProdPed(); }
-function setPProdPed(p) { pProdPed = p; renderProdPed(); }
-function setFiltProdPed(v) { filtProdPed = v; pProdPed = 1; renderProdPed(); }
-
-function renderProdVol() {
-  const term = filtProdVol.toLowerCase();
-  const filtered = term ? dadosProdVol.filter(r => r.nome.toLowerCase().includes(term)) : dadosProdVol;
-  const pg = filtered.slice((pProdVol-1)*limProdVol, pProdVol*limProdVol);
-  document.getElementById('tbody_prod_vol').innerHTML = pg.length
-    ? pg.map((r, i) => `
-      <tr class="border-b border-white/5 last:border-0 hover:bg-surface-container/50">
-        <td class="px-4 py-2.5 text-gray-500 font-bold">${(pProdVol-1)*limProdVol+i+1}</td>
-        <td class="px-4 py-2.5 text-white font-medium max-w-[160px] truncate" title="${r.nome}">${r.nome}</td>
-        <td class="px-4 py-2.5 text-[#FF6600] font-bold text-right">${fmtR(r.total)}</td>
-        <td class="px-4 py-2.5 text-gray-400 text-right">${fmt(r.quantidade, 0)}</td>
-      </tr>`).join('')
-    : '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-600">Sem dados no período</td></tr>';
-  pagUI('pag_prod_vol', limProdVol, pProdVol, filtered.length, 'setLimProdVol', 'setPProdVol');
-}
-function setLimProdVol(n) { limProdVol = n; pProdVol = 1; renderProdVol(); }
-function setPProdVol(p) { pProdVol = p; renderProdVol(); }
-function setFiltProdVol(v) { filtProdVol = v; pProdVol = 1; renderProdVol(); }
-
-async function carregarProdutos(ini, fim) {
-  try {
-    const data = await apiFetch(`/api/clientes/produtos?inicio=${ini}&fim=${fim}`);
-    dadosProdPed = data.por_pedidos || [];
-    dadosProdVol = data.por_volume  || [];
-    limProdPed = 10; pProdPed = 1; filtProdPed = '';
-    limProdVol = 10; pProdVol = 1; filtProdVol = '';
-    const fp = document.getElementById('inp_filt_prod_ped'); if (fp) fp.value = '';
-    const fv = document.getElementById('inp_filt_prod_vol'); if (fv) fv.value = '';
-    renderProdPed();
-    renderProdVol();
-  } catch(e) {
-    ['tbody_prod_ped','tbody_prod_vol'].forEach(id => {
-      document.getElementById(id).innerHTML =
-        `<tr><td colspan="4" class="px-4 py-6 text-center text-red-400">${e.message}</td></tr>`;
-    });
-  }
-}
 
 async function carregar() {
   const { ini, fim } = periodoMes();
   const sync = document.getElementById('icon_sync');
   sync.classList.add('animate-spin');
-  carregarProdutos(ini, fim);
-
   try {
     const data = await apiFetch(`/api/clientes/resumo?inicio=${ini}&fim=${fim}`);
     const kpi = data.kpi || {};
