@@ -32,6 +32,16 @@ if errorlevel 1 (
     echo  Instalando requests...
     pip install requests --quiet
 )
+pip show psycopg2-binary >nul 2>&1
+if errorlevel 1 (
+    echo  Instalando psycopg2-binary...
+    pip install psycopg2-binary --only-binary :all: --quiet
+    if errorlevel 1 (
+        echo [ERRO] Falha ao instalar psycopg2-binary.
+        pause
+        exit /b
+    )
+)
 echo  Dependencias OK.
 echo.
 
