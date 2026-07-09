@@ -491,7 +491,8 @@ def saidas():
     base_sql = """
         SELECT id_saida, id_produto, codigo, descricao,
                data_venda, quantidade_vendida, preco_venda,
-               sub_total, desconto, val_desp_adm, id_cliente, id_vendedor,
+               sub_total, desconto, val_desp_adm,
+               val_enc_fed, val_icms_recolher, id_cliente, id_vendedor,
                id_plano, id_loja, operacao
         FROM saidas
         WHERE data_venda::date BETWEEN %s AND %s

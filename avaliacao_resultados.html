@@ -217,12 +217,11 @@ function mudarAno(delta) {
 
 // Linhas derivadas (mock) a partir de Vendas de produtos — proporções ilustrativas,
 // substituir quando os demais campos da tabela saídas forem mapeados.
-function montarLinhas(vendasProdutos, despesaAdm) {
+function montarLinhas(vendasProdutos, despesaAdm, impostos) {
   const z = () => Array(12).fill(0);
   const receitaBruta      = vendasProdutos.map(v => v);
 
   const devolucoes  = vendasProdutos.map(v => -v * 0.013);
-  const impostos     = receitaBruta.map(v => -v * 0.042);
   const deducoes      = devolucoes.map((v,i) => v + despesaAdm[i] + impostos[i]);
 
   const receitaLiquida = receitaBruta.map((v,i) => v + deducoes[i]);
@@ -243,7 +242,7 @@ function montarLinhas(vendasProdutos, despesaAdm) {
       { tipo:'total',  label:'(-) DEDUÇÕES DA RECEITA BRUTA',       valores: deducoes,       real:false },
       { tipo:'item',   label:'Devoluções de vendas',                valores: devolucoes,     real:false },
       { tipo:'item',   label:'Despesa Administrativa',               valores: despesaAdm,     real:true  },
-      { tipo:'item',   label:'Impostos sobre vendas',               valores: impostos,       real:false },
+      { tipo:'item',   label:'Impostos sobre vendas',               valores: impostos,       real:true  },
       { tipo:'space' },
       { tipo:'result', label:'= RECEITA OPERACIONAL LÍQUIDA',       valores: receitaLiquida, real:false },
       { tipo:'space' },
@@ -269,13 +268,16 @@ async function carregarAno() {
 
   const vendasProdutos = Array(12).fill(0);
   const despesaAdm     = Array(12).fill(0);
+  const impostos       = Array(12).fill(0);
   dados.forEach(r => {
     const mes = new Date(r.data_venda).getMonth();
+    const qtd = parseFloat(r.quantidade_vendida || 0);
     vendasProdutos[mes] += parseFloat(r.sub_total || 0);
-    despesaAdm[mes] -= parseFloat(r.quantidade_vendida || 0) * parseFloat(r.val_desp_adm || 0);
+    despesaAdm[mes] -= qtd * parseFloat(r.val_desp_adm || 0);
+    impostos[mes]   -= qtd * (parseFloat(r.val_enc_fed || 0) + parseFloat(r.val_icms_recolher || 0));
   });
 
-  const { receitaBruta, receitaLiquida, resultadoBruto, linhas } = montarLinhas(vendasProdutos, despesaAdm);
+  const { receitaBruta, receitaLiquida, resultadoBruto, linhas } = montarLinhas(vendasProdutos, despesaAdm, impostos);
 
   const totalReceitaBruta   = receitaBruta.reduce((a,b) => a+b, 0);
   const totalReceitaLiquida = receitaLiquida.reduce((a,b) => a+b, 0);

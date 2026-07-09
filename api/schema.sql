@@ -243,3 +243,7 @@ CREATE INDEX IF NOT EXISTS idx_plano_venda_id_tenant    ON plano_venda (id_tenan
 -- ── Migração: valor de despesa administrativa por item de venda (DRE) ───────
 ALTER TABLE produtos DROP COLUMN IF EXISTS val_desp_adm;
 ALTER TABLE saidas   ADD COLUMN IF NOT EXISTS val_desp_adm NUMERIC(15,2);
+
+-- ── Migração: impostos por item de venda (DRE) ───────────────────────────────
+ALTER TABLE saidas ADD COLUMN IF NOT EXISTS val_enc_fed NUMERIC(15,2);
+ALTER TABLE saidas ADD COLUMN IF NOT EXISTS val_icms_recolher NUMERIC(15,2);
