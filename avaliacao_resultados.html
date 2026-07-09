@@ -219,9 +219,7 @@ function mudarAno(delta) {
 // substituir quando os demais campos da tabela saídas forem mapeados.
 function montarLinhas(vendasProdutos) {
   const z = () => Array(12).fill(0);
-  const vendasMercadorias = vendasProdutos.map(v => v * 0.03);
-  const vendasServicos    = z();
-  const receitaBruta      = vendasProdutos.map((v,i) => v + vendasMercadorias[i] + vendasServicos[i]);
+  const receitaBruta      = vendasProdutos.map(v => v);
 
   const devolucoes  = vendasProdutos.map(v => -v * 0.013);
   const abatimentos = z();
@@ -231,7 +229,7 @@ function montarLinhas(vendasProdutos) {
   const receitaLiquida = receitaBruta.map((v,i) => v + deducoes[i]);
 
   const custoProdutos     = vendasProdutos.map(v => -v * 0.2067);
-  const custoMercadorias  = vendasMercadorias.map(v => -v * 0.206);
+  const custoMercadorias  = z();
   const custoServicos     = z();
   const custosTotais      = custoProdutos.map((v,i) => v + custoMercadorias[i] + custoServicos[i]);
 
@@ -242,8 +240,6 @@ function montarLinhas(vendasProdutos) {
     linhas: [
       { tipo:'total',  label:'RECEITA OPERACIONAL BRUTA',         valores: receitaBruta,   real:false },
       { tipo:'item',   label:'Vendas de produtos',                 valores: vendasProdutos, real:true  },
-      { tipo:'item',   label:'Vendas de mercadorias',               valores: vendasMercadorias, real:false },
-      { tipo:'item',   label:'Vendas de serviços',                  valores: vendasServicos, real:false },
       { tipo:'space' },
       { tipo:'total',  label:'(-) DEDUÇÕES DA RECEITA BRUTA',       valores: deducoes,       real:false },
       { tipo:'item',   label:'Devoluções de vendas',                valores: devolucoes,     real:false },
