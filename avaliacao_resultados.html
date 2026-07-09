@@ -217,14 +217,13 @@ function mudarAno(delta) {
 
 // Linhas derivadas (mock) a partir de Vendas de produtos — proporções ilustrativas,
 // substituir quando os demais campos da tabela saídas forem mapeados.
-function montarLinhas(vendasProdutos) {
+function montarLinhas(vendasProdutos, despesaAdm) {
   const z = () => Array(12).fill(0);
   const receitaBruta      = vendasProdutos.map(v => v);
 
   const devolucoes  = vendasProdutos.map(v => -v * 0.013);
-  const abatimentos = z();
   const impostos     = receitaBruta.map(v => -v * 0.042);
-  const deducoes      = devolucoes.map((v,i) => v + abatimentos[i] + impostos[i]);
+  const deducoes      = devolucoes.map((v,i) => v + despesaAdm[i] + impostos[i]);
 
   const receitaLiquida = receitaBruta.map((v,i) => v + deducoes[i]);
 
@@ -243,7 +242,7 @@ function montarLinhas(vendasProdutos) {
       { tipo:'space' },
       { tipo:'total',  label:'(-) DEDUÇÕES DA RECEITA BRUTA',       valores: deducoes,       real:false },
       { tipo:'item',   label:'Devoluções de vendas',                valores: devolucoes,     real:false },
-      { tipo:'item',   label:'Despesa Administrativa',               valores: abatimentos,    real:false },
+      { tipo:'item',   label:'Despesa Administrativa',               valores: despesaAdm,     real:true  },
       { tipo:'item',   label:'Impostos sobre vendas',               valores: impostos,       real:false },
       { tipo:'space' },
       { tipo:'result', label:'= RECEITA OPERACIONAL LÍQUIDA',       valores: receitaLiquida, real:false },
@@ -266,15 +265,24 @@ async function carregarAno() {
   document.getElementById('dre_status').classList.remove('hidden');
   document.getElementById('dre_wrap').classList.add('hidden');
 
-  const dados = await apiFetch(`/api/saidas?inicio=${anoAtual}-01-01&fim=${anoAtual}-12-31`).catch(() => []);
+  const [dados, produtos] = await Promise.all([
+    apiFetch(`/api/saidas?inicio=${anoAtual}-01-01&fim=${anoAtual}-12-31`).catch(() => []),
+    apiFetch('/api/produtos').catch(() => []),
+  ]);
+
+  const despAdmPorProduto = {};
+  produtos.forEach(p => { despAdmPorProduto[p.id_produto] = parseFloat(p.val_desp_adm || 0); });
 
   const vendasProdutos = Array(12).fill(0);
+  const despesaAdm     = Array(12).fill(0);
   dados.forEach(r => {
     const mes = new Date(r.data_venda).getMonth();
     vendasProdutos[mes] += parseFloat(r.sub_total || 0);
+    const valUnit = despAdmPorProduto[r.id_produto] || 0;
+    despesaAdm[mes] -= parseFloat(r.quantidade_vendida || 0) * valUnit;
   });
 
-  const { receitaBruta, receitaLiquida, resultadoBruto, linhas } = montarLinhas(vendasProdutos);
+  const { receitaBruta, receitaLiquida, resultadoBruto, linhas } = montarLinhas(vendasProdutos, despesaAdm);
 
   const totalReceitaBruta   = receitaBruta.reduce((a,b) => a+b, 0);
   const totalReceitaLiquida = receitaLiquida.reduce((a,b) => a+b, 0);

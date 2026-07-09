@@ -510,7 +510,7 @@ def produtos():
     tenant = _tenant_filter()
     sql = """
         SELECT id_produto, codigo, descricao, unidade,
-               preco, custo_medio, est_minimo,
+               preco, custo_medio, est_minimo, val_desp_adm,
                id_grupo, grupo, id_fornecedor, ativo
         FROM produtos
     """

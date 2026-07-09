@@ -239,3 +239,6 @@ CREATE INDEX IF NOT EXISTS idx_caixa_id_tenant          ON caixa (id_tenant);
 CREATE INDEX IF NOT EXISTS idx_contas_receber_id_tenant ON contas_receber (id_tenant);
 CREATE INDEX IF NOT EXISTS idx_contas_pagar_id_tenant   ON contas_pagar (id_tenant);
 CREATE INDEX IF NOT EXISTS idx_plano_venda_id_tenant    ON plano_venda (id_tenant);
+
+-- ── Migração: valor de despesa administrativa por produto (DRE) ─────────────
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS val_desp_adm NUMERIC(15,2);
