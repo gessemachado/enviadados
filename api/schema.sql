@@ -247,3 +247,6 @@ ALTER TABLE saidas   ADD COLUMN IF NOT EXISTS val_desp_adm NUMERIC(15,2);
 -- ── Migração: impostos por item de venda (DRE) ───────────────────────────────
 ALTER TABLE saidas ADD COLUMN IF NOT EXISTS val_enc_fed NUMERIC(15,2);
 ALTER TABLE saidas ADD COLUMN IF NOT EXISTS val_icms_recolher NUMERIC(15,2);
+
+-- ── Migração: custo total por item de venda (DRE) ────────────────────────────
+ALTER TABLE saidas ADD COLUMN IF NOT EXISTS custo_total NUMERIC(15,2);

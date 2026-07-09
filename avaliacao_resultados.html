@@ -217,7 +217,7 @@ function mudarAno(delta) {
 
 // Linhas derivadas (mock) a partir de Vendas de produtos — proporções ilustrativas,
 // substituir quando os demais campos da tabela saídas forem mapeados.
-function montarLinhas(vendasProdutos, despesaAdm, impostos) {
+function montarLinhas(vendasProdutos, despesaAdm, impostos, custoProdutos) {
   const z = () => Array(12).fill(0);
   const receitaBruta      = vendasProdutos.map(v => v);
 
@@ -226,7 +226,6 @@ function montarLinhas(vendasProdutos, despesaAdm, impostos) {
 
   const receitaLiquida = receitaBruta.map((v,i) => v + deducoes[i]);
 
-  const custoProdutos     = vendasProdutos.map(v => -v * 0.2067);
   const custoMercadorias  = z();
   const custoServicos     = z();
   const custosTotais      = custoProdutos.map((v,i) => v + custoMercadorias[i] + custoServicos[i]);
@@ -247,7 +246,7 @@ function montarLinhas(vendasProdutos, despesaAdm, impostos) {
       { tipo:'result', label:'= RECEITA OPERACIONAL LÍQUIDA',       valores: receitaLiquida, real:false },
       { tipo:'space' },
       { tipo:'total',  label:'(-) CUSTOS DAS MERCADORIAS E SERVIÇOS', valores: custosTotais, real:false },
-      { tipo:'item',   label:'Custo dos produtos vendidos',         valores: custoProdutos,     real:false },
+      { tipo:'item',   label:'Custo dos produtos vendidos',         valores: custoProdutos,     real:true  },
       { tipo:'item',   label:'Custo das mercadorias vendidas',      valores: custoMercadorias,  real:false },
       { tipo:'item',   label:'Custo dos serviços prestados',        valores: custoServicos,     real:false },
       { tipo:'space' },
@@ -269,15 +268,17 @@ async function carregarAno() {
   const vendasProdutos = Array(12).fill(0);
   const despesaAdm     = Array(12).fill(0);
   const impostos       = Array(12).fill(0);
+  const custoProdutos  = Array(12).fill(0);
   dados.forEach(r => {
     const mes = new Date(r.data_venda).getMonth();
     const qtd = parseFloat(r.quantidade_vendida || 0);
     vendasProdutos[mes] += parseFloat(r.sub_total || 0);
     despesaAdm[mes] -= qtd * parseFloat(r.val_desp_adm || 0);
     impostos[mes]   -= qtd * (parseFloat(r.val_enc_fed || 0) + parseFloat(r.val_icms_recolher || 0));
+    custoProdutos[mes] -= qtd * parseFloat(r.custo_total || 0);
   });
 
-  const { receitaBruta, receitaLiquida, resultadoBruto, linhas } = montarLinhas(vendasProdutos, despesaAdm, impostos);
+  const { receitaBruta, receitaLiquida, resultadoBruto, linhas } = montarLinhas(vendasProdutos, despesaAdm, impostos, custoProdutos);
 
   const totalReceitaBruta   = receitaBruta.reduce((a,b) => a+b, 0);
   const totalReceitaLiquida = receitaLiquida.reduce((a,b) => a+b, 0);
