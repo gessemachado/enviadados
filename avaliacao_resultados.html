@@ -218,19 +218,12 @@ function mudarAno(delta) {
 // Linhas derivadas (mock) a partir de Vendas de produtos — proporções ilustrativas,
 // substituir quando os demais campos da tabela saídas forem mapeados.
 function montarLinhas(vendasProdutos, despesaAdm, impostos, custoProdutos) {
-  const z = () => Array(12).fill(0);
-  const receitaBruta      = vendasProdutos.map(v => v);
-
-  const devolucoes  = vendasProdutos.map(v => -v * 0.013);
-  const deducoes      = devolucoes.map((v,i) => v + despesaAdm[i] + impostos[i]);
+  const receitaBruta = vendasProdutos.map(v => v);
+  const deducoes      = despesaAdm.map((v,i) => v + impostos[i]);
 
   const receitaLiquida = receitaBruta.map((v,i) => v + deducoes[i]);
 
-  const custoMercadorias  = z();
-  const custoServicos     = z();
-  const custosTotais      = custoProdutos.map((v,i) => v + custoMercadorias[i] + custoServicos[i]);
-
-  const resultadoBruto = receitaLiquida.map((v,i) => v + custosTotais[i]);
+  const resultadoBruto = receitaLiquida.map((v,i) => v + custoProdutos[i]);
 
   return {
     receitaBruta, receitaLiquida, resultadoBruto,
@@ -239,16 +232,13 @@ function montarLinhas(vendasProdutos, despesaAdm, impostos, custoProdutos) {
       { tipo:'item',   label:'Vendas de produtos',                 valores: vendasProdutos, real:true  },
       { tipo:'space' },
       { tipo:'total',  label:'(-) DEDUÇÕES DA RECEITA BRUTA',       valores: deducoes,       real:false },
-      { tipo:'item',   label:'Devoluções de vendas',                valores: devolucoes,     real:false },
       { tipo:'item',   label:'Despesa Administrativa',               valores: despesaAdm,     real:true  },
       { tipo:'item',   label:'Impostos sobre vendas',               valores: impostos,       real:true  },
       { tipo:'space' },
       { tipo:'result', label:'= RECEITA OPERACIONAL LÍQUIDA',       valores: receitaLiquida, real:false },
       { tipo:'space' },
-      { tipo:'total',  label:'(-) CUSTOS DAS MERCADORIAS E SERVIÇOS', valores: custosTotais, real:false },
+      { tipo:'total',  label:'(-) CUSTOS DAS MERCADORIAS E SERVIÇOS', valores: custoProdutos, real:false },
       { tipo:'item',   label:'Custo dos produtos vendidos',         valores: custoProdutos,     real:true  },
-      { tipo:'item',   label:'Custo das mercadorias vendidas',      valores: custoMercadorias,  real:false },
-      { tipo:'item',   label:'Custo dos serviços prestados',        valores: custoServicos,     real:false },
       { tipo:'space' },
       { tipo:'result', label:'= RESULTADO OPERACIONAL BRUTO',       valores: resultadoBruto, real:false },
     ]
