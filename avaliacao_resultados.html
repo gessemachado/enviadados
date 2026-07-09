@@ -265,21 +265,14 @@ async function carregarAno() {
   document.getElementById('dre_status').classList.remove('hidden');
   document.getElementById('dre_wrap').classList.add('hidden');
 
-  const [dados, produtos] = await Promise.all([
-    apiFetch(`/api/saidas?inicio=${anoAtual}-01-01&fim=${anoAtual}-12-31`).catch(() => []),
-    apiFetch('/api/produtos').catch(() => []),
-  ]);
-
-  const despAdmPorProduto = {};
-  produtos.forEach(p => { despAdmPorProduto[p.id_produto] = parseFloat(p.val_desp_adm || 0); });
+  const dados = await apiFetch(`/api/saidas?inicio=${anoAtual}-01-01&fim=${anoAtual}-12-31`).catch(() => []);
 
   const vendasProdutos = Array(12).fill(0);
   const despesaAdm     = Array(12).fill(0);
   dados.forEach(r => {
     const mes = new Date(r.data_venda).getMonth();
     vendasProdutos[mes] += parseFloat(r.sub_total || 0);
-    const valUnit = despAdmPorProduto[r.id_produto] || 0;
-    despesaAdm[mes] -= parseFloat(r.quantidade_vendida || 0) * valUnit;
+    despesaAdm[mes] -= parseFloat(r.quantidade_vendida || 0) * parseFloat(r.val_desp_adm || 0);
   });
 
   const { receitaBruta, receitaLiquida, resultadoBruto, linhas } = montarLinhas(vendasProdutos, despesaAdm);

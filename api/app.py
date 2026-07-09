@@ -491,7 +491,7 @@ def saidas():
     base_sql = """
         SELECT id_saida, id_produto, codigo, descricao,
                data_venda, quantidade_vendida, preco_venda,
-               sub_total, desconto, id_cliente, id_vendedor,
+               sub_total, desconto, val_desp_adm, id_cliente, id_vendedor,
                id_plano, id_loja, operacao
         FROM saidas
         WHERE data_venda::date BETWEEN %s AND %s
@@ -510,7 +510,7 @@ def produtos():
     tenant = _tenant_filter()
     sql = """
         SELECT id_produto, codigo, descricao, unidade,
-               preco, custo_medio, est_minimo, val_desp_adm,
+               preco, custo_medio, est_minimo,
                id_grupo, grupo, id_fornecedor, ativo
         FROM produtos
     """
