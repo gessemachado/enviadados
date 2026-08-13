@@ -662,14 +662,25 @@ def _gupshup_call(method, path, apikey, body=None, content_type=None, extra_head
 
 
 def _passthrough(status, body):
-    """Retorna a resposta do upstream como JSON (parseando se possível)."""
+    """Retorna a resposta do upstream como JSON.
+    IMPORTANTE: 4xx do upstream vira 502 pra não colidir com nosso 401 de
+    sessão expirada (frontend apiFetch desloga em qualquer 401)."""
     try:
         parsed = json.loads(body)
     except Exception:
         parsed = {'raw': body}
-    resp = jsonify(parsed)
+    if 200 <= (status or 0) < 300:
+        resp = jsonify(parsed)
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp, status
+    # Erro do upstream — devolve envelope com upstream_status pra debug
+    resp = jsonify({
+        'error': f'Upstream Gupshup respondeu {status}',
+        'upstream_status': status,
+        'upstream_body': parsed,
+    })
     resp.headers['Access-Control-Allow-Origin'] = '*'
-    return resp, (status or 502)
+    return resp, 502
 
 
 def _normaliza_fone(v):
