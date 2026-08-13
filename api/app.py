@@ -1250,9 +1250,16 @@ def optin_registrar():
     origem     = (body.get('origem') or 'manual').strip()
     observacao = (body.get('observacao') or '').strip() or None
 
-    tenant, _u = _tenant_user()
+    # Admin sem loja fixa → usa tenant_filter (?tenant_filter=X) do seletor;
+    # se não tem, aceita id_tenant vindo no body como fallback explícito.
+    tenant = _tenant_filter()
     if tenant is None:
-        return _err('tenant obrigatório', 400)
+        try:
+            tenant = int(body.get('id_tenant')) if body.get('id_tenant') is not None else None
+        except (ValueError, TypeError):
+            tenant = None
+    if tenant is None:
+        return _err('tenant obrigatório — selecione uma loja no seletor (canto superior esquerdo) antes de registrar opt-in', 400)
     id_usuario = request.user.get('id_usuario')
 
     # Reativa se já existe inativo, ou cria novo
@@ -1280,9 +1287,14 @@ def optin_remover():
     if not telefone:
         return _err('telefone obrigatório')
 
-    tenant, _u = _tenant_user()
+    tenant = _tenant_filter()
     if tenant is None:
-        return _err('tenant obrigatório', 400)
+        try:
+            tenant = int(body.get('id_tenant')) if body.get('id_tenant') is not None else None
+        except (ValueError, TypeError):
+            tenant = None
+    if tenant is None:
+        return _err('tenant obrigatório — selecione uma loja no seletor', 400)
 
     _write("""
         UPDATE cliente_optin
