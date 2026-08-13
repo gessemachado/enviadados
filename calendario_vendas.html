@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html class="dark" lang="pt-BR">
 <head>
 <meta charset="utf-8"/>
@@ -81,6 +81,9 @@ tailwind.config = {
     </a>
     <a id="link_clientes" class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="clientes.html" style="display:none">
       <span class="material-symbols-outlined mr-3">group</span><span>Clientes</span>
+    </a>
+    <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="marketing.html">
+      <span class="material-symbols-outlined mr-3">campaign</span><span>Marketing</span>
     </a>
     <a class="flex items-center px-4 py-3 text-gray-500 mb-2 hover:text-[#FF6600] hover:bg-[#1c1b1b] rounded-lg transition-all" href="relatorio_estoque.html">
       <span class="material-symbols-outlined mr-3">inventory_2</span><span>Projeção de Compras</span>
@@ -279,27 +282,6 @@ tailwind.config = {
       </div>
     </div>
 
-    <!-- Footer -->
-    <div class="bg-surface-container-low px-4 py-3 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border border-[#FF6600]/10 flex-shrink-0">
-      <div class="flex items-center gap-3">
-        <div class="p-2 bg-[#FF6600]/10 rounded-lg shrink-0">
-          <span class="material-symbols-outlined text-[#FF6600]">insights</span>
-        </div>
-        <div>
-          <h4 class="text-xs font-bold text-white uppercase tracking-wider">Insight Mensal</h4>
-          <p id="insight_txt" class="text-[11px] text-gray-400">Carregando análise...</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 w-full md:w-auto">
-        <button onclick="window.print()" class="flex-1 md:flex-none px-3 py-2 bg-surface-container-high text-xs font-bold rounded-lg text-white">
-          Exportar PDF
-        </button>
-        <button class="flex-1 md:flex-none px-3 py-2 bg-primary-container text-white text-xs font-bold rounded-lg">
-          Relatório Detalhado
-        </button>
-      </div>
-    </div>
-
   </div>
 </main>
 
@@ -430,17 +412,6 @@ async function carregarMes() {
       <span class="text-[11px] font-semibold ${up?'text-green-500':'text-orange-500'}">
         ${up?'+':''}${pct}% vs. Média Diária
       </span>`;
-  }
-
-  // Insight
-  const melhorDia = diasComVenda.sort((a,b) => porDia[b]-porDia[a])[0];
-  if (melhorDia) {
-    const [, , dd] = melhorDia.split('-');
-    document.getElementById('insight_txt').textContent =
-      `Melhor dia do mês: dia ${parseInt(dd)} com ${brl(porDia[melhorDia])}. ` +
-      (pctMeta >= 80
-        ? `Mês em boa trajetória — ${pctMeta}% da meta atingida.`
-        : `Faltam ${brl(metaMensal - totalMes)} para atingir a meta.`);
   }
 
   // Busca paginada do mês anterior para comparação semanal nos sábados
