@@ -628,7 +628,48 @@ def relatorio_estoque():
 
 # ── Marketing WhatsApp (Gupshup) ─────────────────────────────────────────────
 
+GUPSHUP_HOST = 'api.gupshup.io'
 GUPSHUP_URL = 'https://api.gupshup.io/wa/api/v1/template/msg'
+
+
+def _gupshup_call(method, path, apikey, body=None, content_type=None, extra_headers=None, timeout=25):
+    """Proxy HTTP genérico pra api.gupshup.io. Retorna (status, body_str)."""
+    headers = {'apikey': apikey}
+    if extra_headers:
+        headers.update(extra_headers)
+    data = None
+    if body is not None:
+        if content_type:
+            headers['Content-Type'] = content_type
+        if isinstance(body, (bytes, bytearray)):
+            data = bytes(body)
+        elif isinstance(body, str):
+            data = body.encode()
+        else:
+            data = urllib.parse.urlencode(body).encode()
+            headers.setdefault('Content-Type', 'application/x-www-form-urlencoded')
+    req = urllib.request.Request(
+        f'https://{GUPSHUP_HOST}{path}', data=data, method=method, headers=headers
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read().decode('utf-8', errors='replace')
+    except urllib.error.HTTPError as e:
+        b = e.read().decode('utf-8', errors='replace') if e.fp else str(e)
+        return e.code, b
+    except urllib.error.URLError as e:
+        return 0, f'network: {e.reason}'
+
+
+def _passthrough(status, body):
+    """Retorna a resposta do upstream como JSON (parseando se possível)."""
+    try:
+        parsed = json.loads(body)
+    except Exception:
+        parsed = {'raw': body}
+    resp = jsonify(parsed)
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    return resp, (status or 502)
 
 
 def _normaliza_fone(v):
@@ -851,6 +892,247 @@ def gupshup_upload_media():
         'size': len(data),
         'mediaType': media_type,
     })
+
+
+@app.route('/api/gupshup/templates', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_templates():
+    b = request.json or {}
+    apikey = (b.get('apikey') or '').strip()
+    app_id = (b.get('app_id') or '').strip()
+    if not apikey or not app_id:
+        return _err('apikey e app_id obrigatórios')
+    status, body = _gupshup_call('GET', f'/wa/app/{urllib.parse.quote(app_id)}/template', apikey)
+    return _passthrough(status, body)
+
+
+@app.route('/api/gupshup/wallet', methods=['GET', 'OPTIONS'])
+@token_required
+def gupshup_wallet():
+    apikey = (request.args.get('apikey') or '').strip()
+    if not apikey:
+        return _err('apikey obrigatório')
+    status, body = _gupshup_call('GET', '/wa/api/v1/wallet/balance', apikey)
+    try:
+        data = json.loads(body)
+    except Exception:
+        data = body
+    return _ok({'http_status': status, 'data': data})
+
+
+@app.route('/api/gupshup/msg-status', methods=['GET', 'OPTIONS'])
+@token_required
+def gupshup_msg_status():
+    apikey  = (request.args.get('apikey') or '').strip()
+    app_id  = (request.args.get('app_id') or '').strip()
+    msg_id  = (request.args.get('msg_id') or '').strip()
+    app_name = (request.args.get('app_name') or '').strip()
+    if not apikey or not app_id or not msg_id:
+        return _err('apikey, app_id e msg_id obrigatórios')
+
+    tries = [
+        f'/wa/app/{urllib.parse.quote(app_id)}/msg/{urllib.parse.quote(msg_id)}',
+        f'/wa/app/{urllib.parse.quote(app_id)}/msg-event/{urllib.parse.quote(msg_id)}',
+    ]
+    if app_name:
+        tries.append(f'/wa/app/{urllib.parse.quote(app_name)}/msg-event/{urllib.parse.quote(msg_id)}')
+
+    results = []
+    for p in tries:
+        st, body = _gupshup_call('GET', p, apikey)
+        results.append({'path': p, 'status': st, 'body': body[:250]})
+        if st == 200 and body and body not in ('[]', '{}'):
+            try:
+                parsed = json.loads(body)
+            except Exception:
+                parsed = body
+            return _ok({'endpoint': p, 'http_status': st, 'data': parsed, 'tried': results})
+
+    return _ok({
+        'warning': 'Nenhum endpoint retornou dados. Gupshup só entrega estado por callback webhook — se o webhook não estiver configurado, esses endpoints devolvem vazio.',
+        'tried': results,
+    })
+
+
+@app.route('/api/gupshup/send-text', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_send_text():
+    b = request.json or {}
+    apikey  = (b.get('apikey') or '').strip()
+    appname = (b.get('appname') or '').strip()
+    source  = re.sub(r'\D', '', str(b.get('source') or ''))
+    dest    = _normaliza_fone(b.get('destination'))
+    texto   = b.get('texto') or ''
+    if not apikey or not appname or not source or not dest or not texto:
+        return _err('apikey/appname/source/destination/texto obrigatórios')
+
+    fields = {
+        'channel':     'whatsapp',
+        'source':      source,
+        'destination': dest,
+        'src.name':    appname,
+        'message':     json.dumps({'type': 'text', 'text': texto}),
+    }
+    status, body = _gupshup_call('POST', '/wa/api/v1/msg', apikey, body=fields,
+                                 content_type='application/x-www-form-urlencoded')
+    st, msg_id = _parse_gupshup_resp(status, body)
+
+    tenant, _u = _tenant_user()
+    id_usuario = request.user.get('id_usuario')
+    _log_envio(tenant, id_usuario, None, dest, appname, source,
+               None, '[TEXTO-SESSAO]', [f'{len(texto)} chars'],
+               st, status, msg_id, body, None)
+
+    aviso = None
+    if st != 'submitted' and re.search(r'1002|no active session', body, re.I):
+        aviso = f'⚠ SEM SESSÃO ATIVA: {dest} precisa te mandar mensagem primeiro (janela 24h).'
+    return _ok({
+        'ok': st == 'submitted', 'status': st, 'http_status': status,
+        'message_id': msg_id, 'response': body, 'aviso_sessao': aviso,
+    })
+
+
+@app.route('/api/gupshup/create-template', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_create_template():
+    b = request.json or {}
+    apikey  = (b.get('apikey') or '').strip()
+    app_id  = (b.get('app_id') or '').strip()
+    element = (b.get('element_name') or '').strip()
+    content = b.get('content') or ''
+    if not apikey or not app_id or not element or not content:
+        return _err('apikey, app_id, element_name e content obrigatórios')
+
+    fields = {
+        'elementName':                 element,
+        'languageCode':                b.get('language_code') or 'pt_BR',
+        'category':                    b.get('category') or 'MARKETING',
+        'templateType':                b.get('template_type') or 'TEXT',
+        'vertical':                    b.get('vertical') or 'MARKETING',
+        'content':                     content,
+        'example':                     b.get('example') or content,
+        'enableSample':                'true',
+        'allowTemplateCategoryChange': 'true',
+    }
+    if b.get('footer'):
+        fields['footer'] = b['footer']
+    if b.get('example_media_id'):
+        fields['exampleMedia'] = b['example_media_id']
+    elif b.get('example_media'):
+        fields['exampleMedia'] = b['example_media']
+
+    status, body = _gupshup_call('POST', f'/wa/app/{urllib.parse.quote(app_id)}/template',
+                                 apikey, body=fields,
+                                 content_type='application/x-www-form-urlencoded')
+    return _passthrough(status, body)
+
+
+@app.route('/api/gupshup/upload-sample-media', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_upload_sample_media():
+    apikey = (request.args.get('apikey') or '').strip()
+    app_id = (request.args.get('app_id') or '').strip()
+    if not apikey or not app_id:
+        return _err('apikey e app_id na query obrigatórios')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        return _err('campo "file" obrigatório (multipart/form-data)')
+
+    file_bytes = f.read()
+    mime = f.mimetype or 'image/png'
+    safe = secure_filename(f.filename) or f'sample_{int(time.time())}.png'
+
+    boundary = f'----g{uuid.uuid4().hex[:16]}'
+    parts = []
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file_type"\r\n\r\n{mime}\r\n'.encode())
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file_length"\r\n\r\n{len(file_bytes)}\r\n'.encode())
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{safe}"\r\nContent-Type: {mime}\r\n\r\n'.encode())
+    parts.append(file_bytes)
+    parts.append(f'\r\n--{boundary}--\r\n'.encode())
+    body_bytes = b''.join(parts)
+
+    status, body = _gupshup_call(
+        'POST',
+        f'/wa/app/{urllib.parse.quote(app_id)}/template/upload/media',
+        apikey,
+        body=body_bytes,
+        content_type=f'multipart/form-data; boundary={boundary}',
+    )
+    try:
+        j = json.loads(body)
+    except Exception:
+        j = None
+    handle = None
+    if isinstance(j, dict):
+        h = j.get('handleId')
+        if isinstance(h, dict):
+            handle = h.get('message')
+        elif isinstance(h, str):
+            handle = h
+    if status != 200 or not handle:
+        return _err(f'Gupshup: {body[:300]}', status or 502)
+    return _ok({'handleId': handle, 'mediaType': mime.split('/')[0]})
+
+
+@app.route('/api/gupshup/optin', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_optin_platform():
+    """Marca o usuário como opted-in NA GUPSHUP (WhatsApp platform).
+    Distinto de /api/optin (que é registro local de auditoria LGPD)."""
+    b = request.json or {}
+    apikey  = (b.get('apikey') or '').strip()
+    app_id  = (b.get('app_id') or '').strip()
+    app_name = (b.get('app_name') or 'sertaocomunic').strip()
+    phone   = _normaliza_fone(b.get('phone'))
+    if not apikey or not app_id or not phone:
+        return _err('apikey, app_id e phone obrigatórios')
+
+    tries = [
+        (f'/sm/api/v1/app/opt/in/{urllib.parse.quote(app_name)}',
+         f'user={urllib.parse.quote(phone)}', 'application/x-www-form-urlencoded'),
+        (f'/sm/api/v1/app/opt/in/{urllib.parse.quote(app_name)}',
+         json.dumps({'user': phone}), 'application/json'),
+        (f'/wa/api/v1/app/opt/in/{urllib.parse.quote(phone)}',
+         'channel=whatsapp', 'application/x-www-form-urlencoded'),
+        (f'/wa/app/{urllib.parse.quote(app_id)}/optin',
+         f'user={urllib.parse.quote(phone)}', 'application/x-www-form-urlencoded'),
+        (f'/wa/app/{urllib.parse.quote(app_id)}/wallet/optin/{urllib.parse.quote(phone)}',
+         '', 'application/x-www-form-urlencoded'),
+    ]
+
+    results = []
+    for path, body_str, ct in tries:
+        st, rb = _gupshup_call('POST', path, apikey, body=body_str, content_type=ct)
+        results.append({'path': path, 'ct': ct, 'status': st, 'body': rb[:250]})
+        if 200 <= st < 300:
+            try:
+                parsed = json.loads(rb)
+            except Exception:
+                parsed = rb
+            if isinstance(parsed, dict) and parsed.get('status') == 'error':
+                continue
+            return _ok({'ok': True, 'endpoint': path, 'http_status': st,
+                        'data': parsed, 'tried': results})
+
+    return _ok({'ok': False, 'tried': results,
+                'dica': 'Se falhou em todos, faça manualmente em https://www.gupshup.io/whatsappassistant/#/account/opt-in'})
+
+
+@app.route('/api/gupshup/list-optin', methods=['GET', 'OPTIONS'])
+@token_required
+def gupshup_list_optin_platform():
+    apikey   = (request.args.get('apikey') or '').strip()
+    app_name = (request.args.get('app_name') or '').strip()
+    if not apikey or not app_name:
+        return _err('apikey e app_name obrigatórios')
+    path = f'/sm/api/v1/users/{urllib.parse.quote(app_name)}'
+    status, body = _gupshup_call('GET', path, apikey)
+    try:
+        data = json.loads(body)
+    except Exception:
+        data = body
+    return _ok({'http_status': status, 'endpoint': path, 'data': data})
 
 
 _GUPSHUP_EVENT_TO_COL = {

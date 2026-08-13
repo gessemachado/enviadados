@@ -898,7 +898,12 @@ async function uploadMedia(prefix, file){
       status.className = 'text-[10px] mt-1 text-gray-400';
       status.textContent = `Enviando ${(file.size/1024).toFixed(1)} KB pra Gupshup/Meta (sample media)...`;
       const q = new URLSearchParams({ apikey: c.apikey, app_id: c.app_id });
-      const r = await fetch('/api/gupshup/upload-sample-media?' + q.toString(), { method: 'POST', body: fd });
+      const token = localStorage.getItem('obs_token');
+      const r = await fetch('/api/gupshup/upload-sample-media?' + q.toString(), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: fd,
+      });
       const raw = await r.text();
       let j; try { j = JSON.parse(raw); } catch { j = null; }
       if (!r.ok || !j || !j.handleId) {
