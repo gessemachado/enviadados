@@ -17,6 +17,9 @@ git pull origin master
 cp -f *.html "$WWW_DIR/"
 cp -f auth.js "$WWW_DIR/"
 cp -rf mobile "$WWW_DIR/"
+
+# Garante pasta de mídia (uploads de templates WhatsApp)
+mkdir -p "$WWW_DIR/media"
 chown -R www-data:www-data "$WWW_DIR"
 
 # 3. Atualiza código da API (sem sobrescrever config.ini com a senha real)

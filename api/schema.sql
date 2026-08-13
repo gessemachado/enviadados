@@ -250,3 +250,61 @@ ALTER TABLE saidas ADD COLUMN IF NOT EXISTS val_icms_recolher NUMERIC(15,2);
 
 -- ── Migração: custo total por item de venda (DRE) ────────────────────────────
 ALTER TABLE saidas ADD COLUMN IF NOT EXISTS custo_total NUMERIC(15,2);
+
+-- ── Marketing WhatsApp (Gupshup) ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS gupshup_envios (
+    id              SERIAL      PRIMARY KEY,
+    id_tenant       INTEGER,
+    id_usuario      INTEGER,
+    id_cliente      TEXT,
+    destino         TEXT        NOT NULL,
+    appname         TEXT,
+    source          TEXT,
+    template_id     TEXT,
+    template_nome   TEXT,
+    params          JSONB,
+    status          TEXT,
+    http_status     INTEGER,
+    message_id      TEXT,
+    response_body   TEXT,
+    lote_id         TEXT,
+    enviado_em      TIMESTAMP   DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gupshup_envios_tenant  ON gupshup_envios (id_tenant);
+CREATE INDEX IF NOT EXISTS idx_gupshup_envios_data    ON gupshup_envios (enviado_em);
+CREATE INDEX IF NOT EXISTS idx_gupshup_envios_lote    ON gupshup_envios (lote_id);
+CREATE INDEX IF NOT EXISTS idx_gupshup_envios_cliente ON gupshup_envios (id_cliente);
+
+-- ── Webhook Gupshup: status de entrega/leitura por mensagem ──────────────────
+ALTER TABLE gupshup_envios ADD COLUMN IF NOT EXISTS sent_at      TIMESTAMP;
+ALTER TABLE gupshup_envios ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP;
+ALTER TABLE gupshup_envios ADD COLUMN IF NOT EXISTS read_at      TIMESTAMP;
+ALTER TABLE gupshup_envios ADD COLUMN IF NOT EXISTS failed_at    TIMESTAMP;
+ALTER TABLE gupshup_envios ADD COLUMN IF NOT EXISTS error_code   TEXT;
+ALTER TABLE gupshup_envios ADD COLUMN IF NOT EXISTS error_reason TEXT;
+CREATE INDEX IF NOT EXISTS idx_gupshup_envios_msgid   ON gupshup_envios (message_id);
+
+-- ── Opt-in do cliente (LGPD / política Meta) ─────────────────────────────────
+-- Rastro de auditoria de quem consentiu receber WhatsApp da loja, quando e como.
+-- A Meta pode auditar isso; sem opt-in registrado, campanhas podem ser bloqueadas.
+CREATE TABLE IF NOT EXISTS cliente_optin (
+    id             SERIAL     PRIMARY KEY,
+    id_tenant      INTEGER    NOT NULL,
+    id_cliente     TEXT,
+    telefone       TEXT       NOT NULL,
+    canal          TEXT       DEFAULT 'whatsapp',
+    texto          TEXT,              -- o que o cliente aceitou (ex: "aceito receber promoções")
+    origem         TEXT,              -- form_web, cadastro_loja, importacao, manual
+    ativo          BOOLEAN    DEFAULT TRUE,
+    data_optin     TIMESTAMP  DEFAULT NOW(),
+    data_optout    TIMESTAMP,
+    id_usuario     INTEGER,           -- usuário que registrou (se manual)
+    observacao     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_optin_tenant   ON cliente_optin (id_tenant);
+CREATE INDEX IF NOT EXISTS idx_optin_telefone ON cliente_optin (telefone);
+CREATE INDEX IF NOT EXISTS idx_optin_cliente  ON cliente_optin (id_cliente);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_optin_tenant_tel_ativo
+    ON cliente_optin (id_tenant, telefone) WHERE ativo = TRUE;
