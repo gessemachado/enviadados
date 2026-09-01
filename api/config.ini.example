@@ -4,11 +4,11 @@
 ; ============================================================
 
 [postgres]
-host     = 108.174.148.133
+host     =                           <-- ALTERAR (host do Postgres)
 port     = 5432
 database = enviadados
 user     = enviadados
-password = Gab@311284
+password =                           <-- ALTERAR (senha do Postgres)
 
 [firebird]
 host     =
@@ -21,6 +21,16 @@ charset  = WIN1252
 
 [enviadados]
 id_tenant = 1                        <-- ALTERAR (número único desta loja)
+
+[app]
+secret_key = obs-secret-2026
+anthropic_api_key =                  <-- ALTERAR (chave da API Anthropic para contagem por imagem)
+
+[zapi]
+instance_id    =                     <-- ALTERAR (ID da instância, painel Z-API)
+token          =                     <-- ALTERAR (token da instância, painel Z-API)
+client_token   =                     <-- ALTERAR (Seguranca > Client-Token, no painel Z-API)
+numero_destino =                     <-- ALTERAR (WhatsApp do gestor p/ alertas, ex: 5511999999999)
 
 [sync]
 intervalo_minutos   = 15

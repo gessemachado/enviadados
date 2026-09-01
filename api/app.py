@@ -1,13 +1,27 @@
 from flask import Flask, request, jsonify
+from werkzeug.utils import secure_filename
 import psycopg2
 import psycopg2.extras
 import configparser
 import os
 import hashlib
 import jwt
+import json
+import re
+import time
+import uuid
+import urllib.parse
+import urllib.request
+import urllib.error
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from functools import wraps
+
+from zapi_client import (
+    enviar_texto as zapi_enviar_texto,
+    enviar_imagem as zapi_enviar_imagem,
+    numero_destino_padrao as zapi_numero_padrao,
+)
 
 app = Flask(__name__)
 
@@ -15,6 +29,9 @@ _cfg = configparser.ConfigParser()
 _cfg.read(os.path.join(os.path.dirname(__file__), 'config.ini'))
 PG = _cfg['postgres']
 SECRET = _cfg.get('app', 'secret_key', fallback='obs-secret-2026')
+MEDIA_DIR = _cfg.get('media', 'dir', fallback='/var/www/enviadados/media')
+MEDIA_PUBLIC_BASE = _cfg.get('media', 'public_base', fallback='').rstrip('/')
+GUPSHUP_WEBHOOK_TOKEN = _cfg.get('gupshup', 'webhook_token', fallback='')
 
 
 def _conn():
@@ -613,6 +630,1029 @@ def relatorio_estoque():
     """, (data_inicio, data_fim, tenant, tenant,
           meses, dias, dias, dias, dias, dias, grupos_nomes, dias, dif_max))
     return _ok(rows)
+
+
+# ── Marketing WhatsApp (Gupshup) ─────────────────────────────────────────────
+
+GUPSHUP_HOST = 'api.gupshup.io'
+GUPSHUP_URL = 'https://api.gupshup.io/wa/api/v1/template/msg'
+
+
+def _gupshup_call(method, path, apikey, body=None, content_type=None, extra_headers=None, timeout=25):
+    """Proxy HTTP genérico pra api.gupshup.io. Retorna (status, body_str)."""
+    headers = {'apikey': apikey}
+    if extra_headers:
+        headers.update(extra_headers)
+    data = None
+    if body is not None:
+        if content_type:
+            headers['Content-Type'] = content_type
+        if isinstance(body, (bytes, bytearray)):
+            data = bytes(body)
+        elif isinstance(body, str):
+            data = body.encode()
+        else:
+            data = urllib.parse.urlencode(body).encode()
+            headers.setdefault('Content-Type', 'application/x-www-form-urlencoded')
+    req = urllib.request.Request(
+        f'https://{GUPSHUP_HOST}{path}', data=data, method=method, headers=headers
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read().decode('utf-8', errors='replace')
+    except urllib.error.HTTPError as e:
+        b = e.read().decode('utf-8', errors='replace') if e.fp else str(e)
+        return e.code, b
+    except urllib.error.URLError as e:
+        return 0, f'network: {e.reason}'
+
+
+def _passthrough(status, body):
+    """Retorna a resposta do upstream como JSON.
+    IMPORTANTE: 4xx do upstream vira 502 pra não colidir com nosso 401 de
+    sessão expirada (frontend apiFetch desloga em qualquer 401)."""
+    try:
+        parsed = json.loads(body)
+    except Exception:
+        parsed = {'raw': body}
+    if 200 <= (status or 0) < 300:
+        resp = jsonify(parsed)
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        return resp, status
+    # Erro do upstream — devolve envelope com upstream_status pra debug
+    resp = jsonify({
+        'error': f'Upstream Gupshup respondeu {status}',
+        'upstream_status': status,
+        'upstream_body': parsed,
+    })
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    return resp, 502
+
+
+def _normaliza_fone(v):
+    if not v:
+        return ''
+    d = re.sub(r'\D', '', str(v))
+    if not d:
+        return ''
+    if not d.startswith('55') and len(d) in (10, 11):
+        d = '55' + d
+    return d
+
+
+def _gupshup_send(apikey, appname, source, destination, template_id, params,
+                  media_url=None, media_type=None):
+    fields = {
+        'channel':     'whatsapp',
+        'source':      source,
+        'destination': destination,
+        'src.name':    appname,
+        'template':    json.dumps({'id': template_id, 'params': params or []}),
+    }
+    if media_url:
+        t = (media_type or 'image').lower()
+        fields['message'] = json.dumps({'type': t, t: {'link': media_url}})
+    payload = urllib.parse.urlencode(fields).encode()
+    req = urllib.request.Request(
+        GUPSHUP_URL, data=payload, method='POST',
+        headers={'apikey': apikey, 'Content-Type': 'application/x-www-form-urlencoded'},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=25) as r:
+            body = r.read().decode('utf-8', errors='replace')
+            return r.status, body
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace') if e.fp else str(e)
+        return e.code, body
+    except urllib.error.URLError as e:
+        return 0, f'network error: {e.reason}'
+
+
+def _log_envio(tenant, id_usuario, id_cliente, destino, appname, source,
+               template_id, template_nome, params, status, http_status,
+               message_id, response_body, lote_id):
+    _write("""
+        INSERT INTO gupshup_envios
+            (id_tenant, id_usuario, id_cliente, destino, appname, source,
+             template_id, template_nome, params, status, http_status,
+             message_id, response_body, lote_id)
+        VALUES (%s,%s,%s,%s,%s,%s, %s,%s,%s,%s,%s, %s,%s,%s)
+    """, (tenant, id_usuario, id_cliente, destino, appname, source,
+          template_id, template_nome,
+          psycopg2.extras.Json(params or []), status, http_status,
+          message_id, response_body, lote_id))
+
+
+def _parse_gupshup_resp(http_status, body):
+    msg_id, st = None, 'error'
+    try:
+        j = json.loads(body)
+        msg_id = j.get('messageId')
+        if 200 <= http_status < 300 and (j.get('status') in ('submitted', 'success')):
+            st = 'submitted'
+    except Exception:
+        pass
+    return st, msg_id
+
+
+@app.route('/api/gupshup/send', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_send():
+    body = request.json or {}
+    apikey      = (body.get('apikey') or '').strip()
+    appname     = (body.get('appname') or '').strip()
+    source      = re.sub(r'\D', '', str(body.get('source') or ''))
+    destination = _normaliza_fone(body.get('destination'))
+    template_id = (body.get('template_id') or '').strip()
+    template_nome = (body.get('template_nome') or '').strip() or None
+    params      = body.get('params') or []
+    id_cliente  = body.get('id_cliente') or None
+    media_url   = body.get('media_url') or None
+    media_type  = body.get('media_type') or None
+
+    if not apikey or not appname or not source or not destination or not template_id:
+        return _err('apikey, appname, source, destination e template_id são obrigatórios')
+
+    tenant, _ = _tenant_user()
+    id_usuario = request.user.get('id_usuario')
+
+    http_status, resp_body = _gupshup_send(
+        apikey, appname, source, destination, template_id, params, media_url, media_type
+    )
+    st, msg_id = _parse_gupshup_resp(http_status, resp_body)
+
+    _log_envio(tenant, id_usuario, id_cliente, destination, appname, source,
+               template_id, template_nome, params, st, http_status,
+               msg_id, resp_body, None)
+
+    return _ok({
+        'ok':          st == 'submitted',
+        'status':      st,
+        'http_status': http_status,
+        'message_id':  msg_id,
+        'response':    resp_body,
+    })
+
+
+@app.route('/api/gupshup/enviar-lote', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_enviar_lote():
+    body = request.json or {}
+    apikey      = (body.get('apikey') or '').strip()
+    appname     = (body.get('appname') or '').strip()
+    source      = re.sub(r'\D', '', str(body.get('source') or ''))
+    template_id = (body.get('template_id') or '').strip()
+    template_nome = (body.get('template_nome') or '').strip() or None
+    destinos    = body.get('destinos') or []  # [{destination, params:[], id_cliente?}]
+    media_url   = body.get('media_url') or None
+    media_type  = body.get('media_type') or None
+
+    if not apikey or not appname or not source or not template_id:
+        return _err('apikey, appname, source e template_id são obrigatórios')
+    if not isinstance(destinos, list) or not destinos:
+        return _err('destinos deve ser lista não vazia')
+    if len(destinos) > 250:
+        return _err('máximo de 250 destinos por lote (limite MM Lite)')
+
+    tenant, _ = _tenant_user()
+    id_usuario = request.user.get('id_usuario')
+    lote_id = uuid.uuid4().hex
+
+    resultados = []
+    for i, d in enumerate(destinos):
+        destino = _normaliza_fone(d.get('destination'))
+        params  = d.get('params') or []
+        id_cliente = d.get('id_cliente') or None
+
+        if not destino:
+            resultados.append({'destination': d.get('destination'), 'ok': False,
+                               'erro': 'telefone inválido'})
+            continue
+
+        http_status, resp_body = _gupshup_send(
+            apikey, appname, source, destino, template_id, params, media_url, media_type
+        )
+        st, msg_id = _parse_gupshup_resp(http_status, resp_body)
+
+        _log_envio(tenant, id_usuario, id_cliente, destino, appname, source,
+                   template_id, template_nome, params, st, http_status,
+                   msg_id, resp_body, lote_id)
+
+        resultados.append({
+            'destination': destino, 'id_cliente': id_cliente,
+            'ok': st == 'submitted', 'status': st,
+            'http_status': http_status, 'message_id': msg_id,
+        })
+
+        if i < len(destinos) - 1:
+            time.sleep(0.25)
+
+    total = len(resultados)
+    ok = sum(1 for r in resultados if r.get('ok'))
+    return _ok({'lote_id': lote_id, 'total': total, 'enviados': ok,
+                'falhas': total - ok, 'resultados': resultados})
+
+
+_MEDIA_EXT_TO_TYPE = {
+    '.png':  ('image', 'image/png'),
+    '.jpg':  ('image', 'image/jpeg'),
+    '.jpeg': ('image', 'image/jpeg'),
+    '.webp': ('image', 'image/webp'),
+    '.gif':  ('image', 'image/gif'),
+    '.mp4':  ('video', 'video/mp4'),
+    '.pdf':  ('document', 'application/pdf'),
+}
+_MEDIA_MAX_BYTES = 20 * 1024 * 1024
+
+
+@app.route('/api/gupshup/upload-media', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_upload_media():
+    f = request.files.get('file')
+    if not f or not f.filename:
+        return _err('campo "file" obrigatório (multipart/form-data)')
+
+    orig = secure_filename(f.filename) or 'upload.bin'
+    ext = os.path.splitext(orig)[1].lower()
+    if ext not in _MEDIA_EXT_TO_TYPE:
+        return _err(f'extensão {ext or "(vazia)"} não suportada. Aceitas: {sorted(_MEDIA_EXT_TO_TYPE)}')
+    media_type, _mime = _MEDIA_EXT_TO_TYPE[ext]
+
+    data = f.read(_MEDIA_MAX_BYTES + 1)
+    if not data:
+        return _err('arquivo vazio')
+    if len(data) > _MEDIA_MAX_BYTES:
+        return _err(f'arquivo excede {_MEDIA_MAX_BYTES // (1024 * 1024)} MB')
+
+    tenant, _u = _tenant_user()
+    digest = hashlib.sha256(data).hexdigest()[:16]
+    safe_name = f'{tenant or 0}_{int(time.time())}_{digest}{ext}'
+
+    try:
+        os.makedirs(MEDIA_DIR, exist_ok=True)
+        with open(os.path.join(MEDIA_DIR, safe_name), 'wb') as out:
+            out.write(data)
+    except OSError as e:
+        return _err(f'erro salvando mídia: {e}', 500)
+
+    if MEDIA_PUBLIC_BASE:
+        media_url = f'{MEDIA_PUBLIC_BASE}/{safe_name}'
+    else:
+        scheme = request.headers.get('X-Forwarded-Proto') or ('https' if request.is_secure else 'http')
+        host = request.headers.get('X-Forwarded-Host') or request.headers.get('Host') or request.host
+        media_url = f'{scheme}://{host}/media/{safe_name}'
+
+    return _ok({
+        'mediaUrl': media_url,
+        'provider': 'vps',
+        'filename': safe_name,
+        'size': len(data),
+        'mediaType': media_type,
+    })
+
+
+@app.route('/api/gupshup/templates', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_templates():
+    b = request.json or {}
+    apikey = (b.get('apikey') or '').strip()
+    app_id = (b.get('app_id') or '').strip()
+    if not apikey or not app_id:
+        return _err('apikey e app_id obrigatórios')
+    status, body = _gupshup_call('GET', f'/wa/app/{urllib.parse.quote(app_id)}/template', apikey)
+    return _passthrough(status, body)
+
+
+@app.route('/api/gupshup/wallet', methods=['GET', 'OPTIONS'])
+@token_required
+def gupshup_wallet():
+    apikey = (request.args.get('apikey') or '').strip()
+    if not apikey:
+        return _err('apikey obrigatório')
+    status, body = _gupshup_call('GET', '/wa/api/v1/wallet/balance', apikey)
+    try:
+        data = json.loads(body)
+    except Exception:
+        data = body
+    return _ok({'http_status': status, 'data': data})
+
+
+@app.route('/api/gupshup/msg-status', methods=['GET', 'OPTIONS'])
+@token_required
+def gupshup_msg_status():
+    apikey  = (request.args.get('apikey') or '').strip()
+    app_id  = (request.args.get('app_id') or '').strip()
+    msg_id  = (request.args.get('msg_id') or '').strip()
+    app_name = (request.args.get('app_name') or '').strip()
+    if not apikey or not app_id or not msg_id:
+        return _err('apikey, app_id e msg_id obrigatórios')
+
+    tries = [
+        f'/wa/app/{urllib.parse.quote(app_id)}/msg/{urllib.parse.quote(msg_id)}',
+        f'/wa/app/{urllib.parse.quote(app_id)}/msg-event/{urllib.parse.quote(msg_id)}',
+    ]
+    if app_name:
+        tries.append(f'/wa/app/{urllib.parse.quote(app_name)}/msg-event/{urllib.parse.quote(msg_id)}')
+
+    results = []
+    for p in tries:
+        st, body = _gupshup_call('GET', p, apikey)
+        results.append({'path': p, 'status': st, 'body': body[:250]})
+        if st == 200 and body and body not in ('[]', '{}'):
+            try:
+                parsed = json.loads(body)
+            except Exception:
+                parsed = body
+            return _ok({'endpoint': p, 'http_status': st, 'data': parsed, 'tried': results})
+
+    return _ok({
+        'warning': 'Nenhum endpoint retornou dados. Gupshup só entrega estado por callback webhook — se o webhook não estiver configurado, esses endpoints devolvem vazio.',
+        'tried': results,
+    })
+
+
+@app.route('/api/gupshup/send-text', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_send_text():
+    b = request.json or {}
+    apikey  = (b.get('apikey') or '').strip()
+    appname = (b.get('appname') or '').strip()
+    source  = re.sub(r'\D', '', str(b.get('source') or ''))
+    dest    = _normaliza_fone(b.get('destination'))
+    texto   = b.get('texto') or ''
+    if not apikey or not appname or not source or not dest or not texto:
+        return _err('apikey/appname/source/destination/texto obrigatórios')
+
+    fields = {
+        'channel':     'whatsapp',
+        'source':      source,
+        'destination': dest,
+        'src.name':    appname,
+        'message':     json.dumps({'type': 'text', 'text': texto}),
+    }
+    status, body = _gupshup_call('POST', '/wa/api/v1/msg', apikey, body=fields,
+                                 content_type='application/x-www-form-urlencoded')
+    st, msg_id = _parse_gupshup_resp(status, body)
+
+    tenant, _u = _tenant_user()
+    id_usuario = request.user.get('id_usuario')
+    _log_envio(tenant, id_usuario, None, dest, appname, source,
+               None, '[TEXTO-SESSAO]', [f'{len(texto)} chars'],
+               st, status, msg_id, body, None)
+
+    aviso = None
+    if st != 'submitted' and re.search(r'1002|no active session', body, re.I):
+        aviso = f'⚠ SEM SESSÃO ATIVA: {dest} precisa te mandar mensagem primeiro (janela 24h).'
+    return _ok({
+        'ok': st == 'submitted', 'status': st, 'http_status': status,
+        'message_id': msg_id, 'response': body, 'aviso_sessao': aviso,
+    })
+
+
+@app.route('/api/gupshup/create-template', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_create_template():
+    b = request.json or {}
+    apikey  = (b.get('apikey') or '').strip()
+    app_id  = (b.get('app_id') or '').strip()
+    element = (b.get('element_name') or '').strip()
+    content = b.get('content') or ''
+    if not apikey or not app_id or not element or not content:
+        return _err('apikey, app_id, element_name e content obrigatórios')
+
+    fields = {
+        'elementName':                 element,
+        'languageCode':                b.get('language_code') or 'pt_BR',
+        'category':                    b.get('category') or 'MARKETING',
+        'templateType':                b.get('template_type') or 'TEXT',
+        'vertical':                    b.get('vertical') or 'MARKETING',
+        'content':                     content,
+        'example':                     b.get('example') or content,
+        'enableSample':                'true',
+        'allowTemplateCategoryChange': 'true',
+    }
+    if b.get('footer'):
+        fields['footer'] = b['footer']
+    if b.get('example_media_id'):
+        fields['exampleMedia'] = b['example_media_id']
+    elif b.get('example_media'):
+        fields['exampleMedia'] = b['example_media']
+
+    status, body = _gupshup_call('POST', f'/wa/app/{urllib.parse.quote(app_id)}/template',
+                                 apikey, body=fields,
+                                 content_type='application/x-www-form-urlencoded')
+    return _passthrough(status, body)
+
+
+@app.route('/api/gupshup/upload-sample-media', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_upload_sample_media():
+    apikey = (request.args.get('apikey') or '').strip()
+    app_id = (request.args.get('app_id') or '').strip()
+    if not apikey or not app_id:
+        return _err('apikey e app_id na query obrigatórios')
+
+    f = request.files.get('file')
+    if not f or not f.filename:
+        return _err('campo "file" obrigatório (multipart/form-data)')
+
+    file_bytes = f.read()
+    mime = f.mimetype or 'image/png'
+    safe = secure_filename(f.filename) or f'sample_{int(time.time())}.png'
+
+    boundary = f'----g{uuid.uuid4().hex[:16]}'
+    parts = []
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file_type"\r\n\r\n{mime}\r\n'.encode())
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file_length"\r\n\r\n{len(file_bytes)}\r\n'.encode())
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{safe}"\r\nContent-Type: {mime}\r\n\r\n'.encode())
+    parts.append(file_bytes)
+    parts.append(f'\r\n--{boundary}--\r\n'.encode())
+    body_bytes = b''.join(parts)
+
+    status, body = _gupshup_call(
+        'POST',
+        f'/wa/app/{urllib.parse.quote(app_id)}/template/upload/media',
+        apikey,
+        body=body_bytes,
+        content_type=f'multipart/form-data; boundary={boundary}',
+    )
+    try:
+        j = json.loads(body)
+    except Exception:
+        j = None
+    handle = None
+    if isinstance(j, dict):
+        h = j.get('handleId')
+        if isinstance(h, dict):
+            handle = h.get('message')
+        elif isinstance(h, str):
+            handle = h
+    if status != 200 or not handle:
+        return _err(f'Gupshup: {body[:300]}', status or 502)
+    return _ok({'handleId': handle, 'mediaType': mime.split('/')[0]})
+
+
+@app.route('/api/gupshup/optin', methods=['POST', 'OPTIONS'])
+@token_required
+def gupshup_optin_platform():
+    """Marca o usuário como opted-in NA GUPSHUP (WhatsApp platform).
+    Distinto de /api/optin (que é registro local de auditoria LGPD)."""
+    b = request.json or {}
+    apikey  = (b.get('apikey') or '').strip()
+    app_id  = (b.get('app_id') or '').strip()
+    app_name = (b.get('app_name') or 'sertaocomunic').strip()
+    phone   = _normaliza_fone(b.get('phone'))
+    if not apikey or not app_id or not phone:
+        return _err('apikey, app_id e phone obrigatórios')
+
+    tries = [
+        (f'/sm/api/v1/app/opt/in/{urllib.parse.quote(app_name)}',
+         f'user={urllib.parse.quote(phone)}', 'application/x-www-form-urlencoded'),
+        (f'/sm/api/v1/app/opt/in/{urllib.parse.quote(app_name)}',
+         json.dumps({'user': phone}), 'application/json'),
+        (f'/wa/api/v1/app/opt/in/{urllib.parse.quote(phone)}',
+         'channel=whatsapp', 'application/x-www-form-urlencoded'),
+        (f'/wa/app/{urllib.parse.quote(app_id)}/optin',
+         f'user={urllib.parse.quote(phone)}', 'application/x-www-form-urlencoded'),
+        (f'/wa/app/{urllib.parse.quote(app_id)}/wallet/optin/{urllib.parse.quote(phone)}',
+         '', 'application/x-www-form-urlencoded'),
+    ]
+
+    results = []
+    for path, body_str, ct in tries:
+        st, rb = _gupshup_call('POST', path, apikey, body=body_str, content_type=ct)
+        results.append({'path': path, 'ct': ct, 'status': st, 'body': rb[:250]})
+        if 200 <= st < 300:
+            try:
+                parsed = json.loads(rb)
+            except Exception:
+                parsed = rb
+            if isinstance(parsed, dict) and parsed.get('status') == 'error':
+                continue
+            return _ok({'ok': True, 'endpoint': path, 'http_status': st,
+                        'data': parsed, 'tried': results})
+
+    return _ok({'ok': False, 'tried': results,
+                'dica': 'Se falhou em todos, faça manualmente em https://www.gupshup.io/whatsappassistant/#/account/opt-in'})
+
+
+@app.route('/api/gupshup/list-optin', methods=['GET', 'OPTIONS'])
+@token_required
+def gupshup_list_optin_platform():
+    apikey   = (request.args.get('apikey') or '').strip()
+    app_name = (request.args.get('app_name') or '').strip()
+    if not apikey or not app_name:
+        return _err('apikey e app_name obrigatórios')
+    path = f'/sm/api/v1/users/{urllib.parse.quote(app_name)}'
+    status, body = _gupshup_call('GET', path, apikey)
+    try:
+        data = json.loads(body)
+    except Exception:
+        data = body
+    return _ok({'http_status': status, 'endpoint': path, 'data': data})
+
+
+_GUPSHUP_EVENT_TO_COL = {
+    'enqueued':  'sent_at',
+    'sent':      'sent_at',
+    'delivered': 'delivered_at',
+    'read':      'read_at',
+    'failed':    'failed_at',
+}
+
+
+@app.route('/api/gupshup/webhook', methods=['POST', 'GET', 'OPTIONS'])
+def gupshup_webhook():
+    if request.method == 'OPTIONS':
+        return _cors_preflight()
+    if request.method == 'GET':
+        return _ok({'ok': True, 'service': 'gupshup-webhook'})
+
+    if GUPSHUP_WEBHOOK_TOKEN:
+        supplied = request.args.get('token') or request.headers.get('X-Webhook-Token', '')
+        if supplied != GUPSHUP_WEBHOOK_TOKEN:
+            return _err('token inválido', 401)
+
+    body = request.get_json(silent=True) or {}
+    ev_type = body.get('type') or ''
+    payload = body.get('payload') or {}
+
+    if ev_type != 'message-event':
+        return _ok({'ignored': ev_type or 'unknown'})
+
+    msg_id = payload.get('id') or payload.get('gsId')
+    st = (payload.get('type') or '').lower()
+    if not msg_id or not st:
+        return _ok({'ignored': 'missing id or type'})
+
+    col = _GUPSHUP_EVENT_TO_COL.get(st)
+    if not col:
+        return _ok({'ignored': f'status {st} não mapeado'})
+
+    err_code = err_reason = None
+    if st == 'failed':
+        p2 = payload.get('payload') or {}
+        err_code = (str(p2.get('code') or '')[:50]) or None
+        err_reason = (str(p2.get('reason') or '')[:500]) or None
+
+    _write(f"""
+        UPDATE gupshup_envios
+           SET status = %s,
+               {col} = COALESCE({col}, NOW()),
+               error_code = COALESCE(%s, error_code),
+               error_reason = COALESCE(%s, error_reason)
+         WHERE message_id = %s
+    """, (st, err_code, err_reason, msg_id))
+
+    return _ok({'updated': st, 'message_id': msg_id})
+
+
+@app.route('/api/gupshup/envios')
+@token_required
+def gupshup_envios():
+    tenant = _tenant_filter()
+    limite = min(int(request.args.get('limite', 200)), 1000)
+    lote   = request.args.get('lote_id')
+
+    sql = """
+        SELECT e.id, e.id_cliente,
+               COALESCE(c.cliente, '') AS cliente_nome,
+               e.destino, e.appname, e.template_id, e.template_nome,
+               e.params, e.status, e.http_status, e.message_id,
+               e.lote_id, e.enviado_em,
+               e.sent_at, e.delivered_at, e.read_at, e.failed_at,
+               e.error_code, e.error_reason,
+               u.nome AS usuario_nome
+        FROM gupshup_envios e
+        LEFT JOIN clientes c
+               ON c.id_cliente = e.id_cliente AND c.id_tenant = e.id_tenant
+        LEFT JOIN usuarios u ON u.id_usuario = e.id_usuario
+        WHERE 1=1
+    """
+    params = []
+    if tenant is not None:
+        sql += " AND e.id_tenant = %s"
+        params.append(tenant)
+    if lote:
+        sql += " AND e.lote_id = %s"
+        params.append(lote)
+    sql += " ORDER BY e.enviado_em DESC LIMIT %s"
+    params.append(limite)
+
+    return _ok(_query(sql, tuple(params)))
+
+
+@app.route('/api/optin', methods=['POST', 'OPTIONS'])
+@token_required
+def optin_registrar():
+    body = request.json or {}
+    telefone = _normaliza_fone(body.get('telefone'))
+    if not telefone:
+        return _err('telefone obrigatório')
+
+    id_cliente = body.get('id_cliente') or None
+    canal      = (body.get('canal') or 'whatsapp').strip()
+    texto      = (body.get('texto') or '').strip() or None
+    origem     = (body.get('origem') or 'manual').strip()
+    observacao = (body.get('observacao') or '').strip() or None
+
+    # Admin sem loja fixa → usa tenant_filter (?tenant_filter=X) do seletor;
+    # se não tem, aceita id_tenant vindo no body como fallback explícito.
+    tenant = _tenant_filter()
+    if tenant is None:
+        try:
+            tenant = int(body.get('id_tenant')) if body.get('id_tenant') is not None else None
+        except (ValueError, TypeError):
+            tenant = None
+    if tenant is None:
+        return _err('tenant obrigatório — selecione uma loja no seletor (canto superior esquerdo) antes de registrar opt-in', 400)
+    id_usuario = request.user.get('id_usuario')
+
+    # Reativa se já existe inativo, ou cria novo
+    _write("""
+        UPDATE cliente_optin
+           SET ativo = FALSE, data_optout = NOW()
+         WHERE id_tenant = %s AND telefone = %s AND ativo = TRUE
+    """, (tenant, telefone))
+
+    _write("""
+        INSERT INTO cliente_optin
+            (id_tenant, id_cliente, telefone, canal, texto, origem,
+             ativo, data_optin, id_usuario, observacao)
+        VALUES (%s, %s, %s, %s, %s, %s, TRUE, NOW(), %s, %s)
+    """, (tenant, id_cliente, telefone, canal, texto, origem, id_usuario, observacao))
+
+    return _ok({'ok': True, 'telefone': telefone, 'ativo': True})
+
+
+@app.route('/api/optout', methods=['POST', 'OPTIONS'])
+@token_required
+def optin_remover():
+    body = request.json or {}
+    telefone = _normaliza_fone(body.get('telefone'))
+    if not telefone:
+        return _err('telefone obrigatório')
+
+    tenant = _tenant_filter()
+    if tenant is None:
+        try:
+            tenant = int(body.get('id_tenant')) if body.get('id_tenant') is not None else None
+        except (ValueError, TypeError):
+            tenant = None
+    if tenant is None:
+        return _err('tenant obrigatório — selecione uma loja no seletor', 400)
+
+    _write("""
+        UPDATE cliente_optin
+           SET ativo = FALSE, data_optout = NOW()
+         WHERE id_tenant = %s AND telefone = %s AND ativo = TRUE
+    """, (tenant, telefone))
+
+    return _ok({'ok': True, 'telefone': telefone, 'ativo': False})
+
+
+@app.route('/api/optin/status')
+@token_required
+def optin_status():
+    telefones_raw = request.args.get('telefones') or request.args.get('telefone') or ''
+    telefones = [_normaliza_fone(t) for t in telefones_raw.split(',') if t.strip()]
+    if not telefones:
+        return _ok({})
+
+    tenant = _tenant_filter()
+    where = ["telefone = ANY(%s)", "ativo = TRUE"]
+    params = [telefones]
+    if tenant is not None:
+        where.append("id_tenant = %s"); params.append(tenant)
+
+    rows = _query(f"""
+        SELECT telefone, id_cliente, canal, texto, origem, data_optin, id_usuario
+          FROM cliente_optin
+         WHERE {' AND '.join(where)}
+    """, tuple(params))
+
+    return _ok({r['telefone']: r for r in rows})
+
+
+@app.route('/api/optin/list')
+@token_required
+def optin_list():
+    tenant = _tenant_filter()
+    limite = min(int(request.args.get('limite', 500)), 2000)
+    where = ["1=1"]
+    params = []
+    if tenant is not None:
+        where.append("o.id_tenant = %s"); params.append(tenant)
+
+    rows = _query(f"""
+        SELECT o.id, o.id_tenant, o.id_cliente, o.telefone, o.canal, o.texto,
+               o.origem, o.ativo, o.data_optin, o.data_optout, o.observacao,
+               COALESCE(c.cliente, '') AS cliente_nome,
+               u.nome AS usuario_nome
+          FROM cliente_optin o
+          LEFT JOIN clientes c
+                 ON c.id_cliente = o.id_cliente AND c.id_tenant = o.id_tenant
+          LEFT JOIN usuarios u ON u.id_usuario = o.id_usuario
+         WHERE {' AND '.join(where)}
+         ORDER BY o.data_optin DESC
+         LIMIT %s
+    """, tuple(params) + (limite,))
+    return _ok(rows)
+
+
+@app.route('/api/gupshup/clientes-marketing')
+@token_required
+def gupshup_clientes_marketing():
+    tenant = _tenant_filter()
+    cidade = request.args.get('cidade')
+    uf     = request.args.get('uf')
+    busca  = request.args.get('busca')
+    inativo_dias = request.args.get('inativo_dias')
+
+    where = ["COALESCE(c.whatsapp, c.celular, c.telefone, '') <> ''",
+             "c.ativo IN ('S','1','true','t')"]
+    params = {}
+    if tenant is not None:
+        where.append("c.id_tenant = %(tenant)s"); params['tenant'] = tenant
+    if cidade:
+        where.append("UPPER(c.cidade) = UPPER(%(cidade)s)"); params['cidade'] = cidade
+    if uf:
+        where.append("UPPER(c.uf) = UPPER(%(uf)s)"); params['uf'] = uf
+    if busca:
+        where.append("UPPER(c.cliente) LIKE UPPER(%(busca)s)")
+        params['busca'] = f'%{busca}%'
+    if inativo_dias:
+        try:
+            params['dias'] = int(inativo_dias)
+            where.append("(c.ultima_compra IS NULL OR c.ultima_compra < CURRENT_DATE - %(dias)s)")
+        except (ValueError, TypeError):
+            pass
+
+    sql = f"""
+        SELECT c.id_cliente, c.cliente AS nome, c.cgc_cpf,
+               COALESCE(c.whatsapp, c.celular, c.telefone) AS telefone,
+               c.cidade, c.uf, c.ultima_compra
+        FROM clientes c
+        WHERE {' AND '.join(where)}
+        ORDER BY c.cliente
+        LIMIT 1000
+    """
+    return _ok(_query(sql, params))
+
+
+# ── Marketing WhatsApp (Z-API) ────────────────────────────────────────────────
+# Alternativa à Gupshup: envia texto livre via WhatsApp pareado (sem template
+# aprovado pela Meta). Credenciais ficam em config.ini (servidor), não no
+# navegador — uma única instância Z-API atende todos os tenants.
+
+def _log_zapi(tenant, id_usuario, id_cliente, destino, mensagem, ok, resultado, lote_id):
+    resultado_txt = resultado if isinstance(resultado, str) else json.dumps(resultado, ensure_ascii=False)
+    _write("""
+        INSERT INTO zapi_envios (id_tenant, id_usuario, id_cliente, destino, mensagem, status, resultado, lote_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+    """, (tenant, id_usuario, id_cliente, destino, mensagem,
+          'enviado' if ok else 'falha', resultado_txt, lote_id))
+
+
+@app.route('/api/zapi/enviar', methods=['POST', 'OPTIONS'])
+@token_required
+def zapi_enviar():
+    body = request.json or {}
+    telefone = (body.get('telefone') or body.get('destination') or '').strip()
+    mensagem = (body.get('mensagem') or '').strip()
+    imagem_url = (body.get('imagem_url') or '').strip() or None
+    id_cliente = body.get('id_cliente') or None
+    if not telefone or not (mensagem or imagem_url):
+        return _err('telefone e mensagem (ou imagem_url) são obrigatórios')
+
+    tenant, _ = _tenant_user()
+    id_usuario = request.user.get('id_usuario')
+
+    if imagem_url:
+        ok, resultado = zapi_enviar_imagem(telefone, imagem_url, mensagem or None)
+    else:
+        ok, resultado = zapi_enviar_texto(telefone, mensagem)
+    _log_zapi(tenant, id_usuario, id_cliente, telefone, mensagem, ok, resultado, None)
+    if not ok:
+        return _err(f'Falha ao enviar WhatsApp: {resultado}', 502)
+    return _ok({'enviado': True, 'resultado': resultado})
+
+
+@app.route('/api/zapi/enviar-lote', methods=['POST', 'OPTIONS'])
+@token_required
+def zapi_enviar_lote():
+    body = request.json or {}
+    mensagem_padrao = (body.get('mensagem') or '').strip()
+    imagem_url = (body.get('imagem_url') or '').strip() or None
+    destinos = body.get('destinos') or []  # [{destination, mensagem?, id_cliente?, cliente_nome?}]
+
+    if not isinstance(destinos, list) or not destinos:
+        return _err('destinos deve ser lista não vazia')
+    if len(destinos) > 250:
+        return _err('máximo de 250 destinos por lote')
+
+    tenant, _ = _tenant_user()
+    id_usuario = request.user.get('id_usuario')
+    lote_id = uuid.uuid4().hex
+
+    resultados = []
+    for i, d in enumerate(destinos):
+        destino = _normaliza_fone(d.get('destination'))
+        msg = (d.get('mensagem') or mensagem_padrao).strip()
+        id_cliente = d.get('id_cliente') or None
+
+        if not destino or not (msg or imagem_url):
+            resultados.append({'destination': d.get('destination'), 'ok': False, 'erro': 'telefone ou mensagem inválidos'})
+            continue
+
+        if imagem_url:
+            ok, resultado = zapi_enviar_imagem(destino, imagem_url, msg or None)
+        else:
+            ok, resultado = zapi_enviar_texto(destino, msg)
+        _log_zapi(tenant, id_usuario, id_cliente, destino, msg, ok, resultado, lote_id)
+        resultados.append({
+            'destination': destino, 'id_cliente': id_cliente, 'ok': ok,
+            'erro': None if ok else resultado,
+        })
+
+        if i < len(destinos) - 1:
+            time.sleep(1)  # evita rajada de envios que pode disparar bloqueio anti-spam da instância
+
+    total = len(resultados)
+    ok_count = sum(1 for r in resultados if r.get('ok'))
+    return _ok({'lote_id': lote_id, 'total': total, 'enviados': ok_count,
+                'falhas': total - ok_count, 'resultados': resultados})
+
+
+@app.route('/api/zapi/envios')
+@token_required
+def zapi_envios_listar():
+    tenant = _tenant_filter()
+    limite = min(int(request.args.get('limite', 200)), 1000)
+    lote   = request.args.get('lote_id')
+
+    sql = """
+        SELECT e.id, e.id_cliente,
+               COALESCE(c.cliente, '') AS cliente_nome,
+               e.destino, e.mensagem, e.status, e.resultado,
+               e.lote_id, e.enviado_em,
+               u.nome AS usuario_nome
+        FROM zapi_envios e
+        LEFT JOIN clientes c ON c.id_cliente = e.id_cliente AND c.id_tenant = e.id_tenant
+        LEFT JOIN usuarios u ON u.id_usuario = e.id_usuario
+        WHERE 1=1
+    """
+    params = []
+    if tenant is not None:
+        sql += " AND e.id_tenant = %s"; params.append(tenant)
+    if lote:
+        sql += " AND e.lote_id = %s"; params.append(lote)
+    sql += " ORDER BY e.enviado_em DESC LIMIT %s"
+    params.append(limite)
+    return _ok(_query(sql, tuple(params)))
+
+
+# ── Notificações internas (Z-API) ─────────────────────────────────────────────
+
+@app.route('/api/whatsapp/enviar', methods=['POST', 'OPTIONS'])
+@admin_required
+def whatsapp_enviar():
+    body = request.json or {}
+    telefone = (body.get('telefone') or '').strip()
+    mensagem = (body.get('mensagem') or '').strip()
+    if not telefone or not mensagem:
+        return _err('telefone e mensagem são obrigatórios')
+    ok, resultado = zapi_enviar_texto(telefone, mensagem)
+    if not ok:
+        return _err(f'Falha ao enviar WhatsApp: {resultado}', 502)
+    return _ok({'enviado': True, 'resultado': resultado})
+
+
+@app.route('/api/whatsapp/notificar-inativos', methods=['POST', 'OPTIONS'])
+@admin_required
+def whatsapp_notificar_inativos():
+    body = request.json or {}
+    dias = int(body.get('dias', 60))
+    mensagem_modelo = body.get('mensagem') or (
+        'Olá {nome}! Sentimos sua falta 🙂 Já faz {dias_inativo} dias desde sua última compra. '
+        'Volte a nos visitar, temos novidades te esperando!'
+    )
+
+    tenant = _tenant_filter()
+    if tenant is None:
+        tenant = int(body.get('id_tenant', 1))
+    params = {'dias': dias, 'tenant': tenant}
+
+    rows = _query("""
+        SELECT
+            c.id_cliente,
+            c.cliente                                              AS nome,
+            COALESCE(c.whatsapp, c.celular, c.telefone, '')        AS contato,
+            MAX(s.data_venda)::date                               AS ultima_compra,
+            CURRENT_DATE - MAX(s.data_venda)::date                AS dias_inativo
+        FROM clientes c
+        LEFT JOIN saidas s
+               ON s.id_cliente = c.id_cliente
+              AND s.operacao = 'V' AND s.quantidade_vendida > 0
+              AND s.id_tenant = %(tenant)s
+        WHERE c.ativo IN ('S','1','true','t')
+          AND c.id_tenant = %(tenant)s
+        GROUP BY c.id_cliente, c.cliente, c.whatsapp, c.celular, c.telefone
+        HAVING MAX(s.data_venda) < CURRENT_DATE - %(dias)s
+            OR MAX(s.data_venda) IS NULL
+        ORDER BY dias_inativo DESC NULLS LAST
+        LIMIT 100
+    """, params)
+
+    enviados, falhas = [], []
+    for r in rows:
+        if not r['contato']:
+            falhas.append({'id_cliente': r['id_cliente'], 'nome': r['nome'], 'motivo': 'sem contato cadastrado'})
+            continue
+        texto = mensagem_modelo.format(
+            nome=r['nome'] or 'cliente',
+            dias_inativo=r['dias_inativo'] if r['dias_inativo'] is not None else dias,
+        )
+        ok, resultado = zapi_enviar_texto(r['contato'], texto)
+        if ok:
+            enviados.append({'id_cliente': r['id_cliente'], 'contato': r['contato']})
+        else:
+            falhas.append({'id_cliente': r['id_cliente'], 'contato': r['contato'], 'motivo': resultado})
+        time.sleep(1)  # evita rajada de envios que pode disparar bloqueio anti-spam da instância
+
+    return _ok({'total_encontrados': len(rows), 'enviados': len(enviados), 'falhas': falhas})
+
+
+@app.route('/api/whatsapp/notificar-vendas', methods=['POST', 'OPTIONS'])
+@admin_required
+def whatsapp_notificar_vendas():
+    body = request.json or {}
+    data_ref = body.get('data') or date.today().isoformat()
+    telefone = (body.get('telefone') or zapi_numero_padrao()).strip()
+    if not telefone:
+        return _err('Nenhum telefone de destino configurado ([zapi] numero_destino em config.ini, ou informe "telefone" no corpo)')
+
+    tenant = _tenant_filter()
+    if tenant is None:
+        tenant = int(body.get('id_tenant', 1))
+
+    rows = _query("""
+        SELECT
+            COUNT(DISTINCT nota_fiscal)                       AS total_pedidos,
+            COALESCE(SUM(sub_total), 0)                        AS total_vendido,
+            COALESCE(SUM(sub_total) / NULLIF(COUNT(*), 0), 0)  AS ticket_medio
+        FROM saidas
+        WHERE data_venda::date = %s
+          AND operacao = 'V' AND quantidade_vendida > 0
+          AND id_tenant = %s
+    """, (data_ref, tenant))
+
+    r = rows[0] if rows else {'total_pedidos': 0, 'total_vendido': 0, 'ticket_medio': 0}
+    texto = (
+        f"📊 Resumo de vendas — {data_ref}\n"
+        f"Pedidos: {r['total_pedidos']}\n"
+        f"Faturamento: R$ {r['total_vendido']:.2f}\n"
+        f"Ticket médio: R$ {r['ticket_medio']:.2f}"
+    )
+    ok, resultado = zapi_enviar_texto(telefone, texto)
+    if not ok:
+        return _err(f'Falha ao enviar WhatsApp: {resultado}', 502)
+    return _ok({'enviado': True, 'resumo': r})
+
+
+@app.route('/api/whatsapp/notificar-estoque-baixo', methods=['POST', 'OPTIONS'])
+@admin_required
+def whatsapp_notificar_estoque_baixo():
+    body = request.json or {}
+    telefone = (body.get('telefone') or zapi_numero_padrao()).strip()
+    if not telefone:
+        return _err('Nenhum telefone de destino configurado ([zapi] numero_destino em config.ini, ou informe "telefone" no corpo)')
+
+    tenant = _tenant_filter()
+    if tenant is None:
+        tenant = int(body.get('id_tenant', 1))
+
+    rows = _query("""
+        SELECT p.descricao, p.codigo, p.est_minimo, COALESCE(SUM(e.estoque), 0) AS estoque_atual
+        FROM produtos p
+        LEFT JOIN estoque e ON e.id_produto = p.id_produto AND e.id_tenant = p.id_tenant
+        WHERE p.id_tenant = %s AND p.ativo IN ('S','1','true','t')
+          AND p.est_minimo IS NOT NULL AND p.est_minimo > 0
+        GROUP BY p.id_produto, p.descricao, p.codigo, p.est_minimo
+        HAVING COALESCE(SUM(e.estoque), 0) < p.est_minimo
+        ORDER BY (p.est_minimo - COALESCE(SUM(e.estoque), 0)) DESC
+        LIMIT 30
+    """, (tenant,))
+
+    if not rows:
+        return _ok({'enviado': False, 'motivo': 'Nenhum produto abaixo do estoque mínimo'})
+
+    linhas = [f"• {r['descricao']}: {r['estoque_atual']} / mín. {r['est_minimo']}" for r in rows]
+    texto = "📦 Alerta de estoque baixo:\n" + "\n".join(linhas)
+    ok, resultado = zapi_enviar_texto(telefone, texto)
+    if not ok:
+        return _err(f'Falha ao enviar WhatsApp: {resultado}', 502)
+    return _ok({'enviado': True, 'produtos': rows})
 
 
 if __name__ == '__main__':
