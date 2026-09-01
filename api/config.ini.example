@@ -38,3 +38,14 @@ retry_tentativas    = 3
 retry_espera_s      = 5
 log_arquivo         = sync_log.txt
 ultimo_sync_arquivo = ultimo_sync.json
+
+[media]
+dir         = /var/www/enviadados/media
+public_base = https://obsidian-envia.duckdns.org/media
+
+[gupshup]
+; Token secreto usado como sufixo na URL do webhook (?token=...).
+; Configure a mesma string no painel Gupshup em Callback URL:
+;   https://obsidian-envia.duckdns.org/api/gupshup/webhook?token=<mesma_string>
+; Se ficar vazio, o webhook aceita qualquer POST (não recomendado em produção).
+webhook_token = trocar-por-string-aleatoria-longa   <-- ALTERAR

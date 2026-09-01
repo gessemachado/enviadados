@@ -17,10 +17,14 @@ git pull origin master
 cp -f *.html "$WWW_DIR/"
 cp -f auth.js "$WWW_DIR/"
 cp -rf mobile "$WWW_DIR/"
+
+# Garante pasta de mídia (uploads de templates WhatsApp)
+mkdir -p "$WWW_DIR/media"
 chown -R www-data:www-data "$WWW_DIR"
 
 # 3. Atualiza código da API (sem sobrescrever config.ini com a senha real)
-cp -f api/app.py      "$APP_DIR/api/app.py"
+cp -f api/app.py         "$APP_DIR/api/app.py"
+cp -f api/zapi_client.py "$APP_DIR/api/zapi_client.py"
 cp -f api/requirements.txt "$APP_DIR/api/requirements.txt"
 cp -f api/schema.sql  "$APP_DIR/api/schema.sql"
 
